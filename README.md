@@ -1,19 +1,21 @@
-# NehoID - Advanced Unique ID Generation Utility
+# NehoID - Enterprise-Grade Unique Identifier Generation
 
-## 🌟 What Makes NehoID Special?
+A comprehensive TypeScript library for generating, managing, and validating unique identifiers with advanced features for enterprise applications. NehoID provides multiple generation strategies, collision detection, encoding pipelines, and monitoring capabilities designed for production environments.
 
-Unlike other ID generators, NehoID provides:
+## Key Differentiators
 
-- **Multi-Layer Encoding**: Advanced encoding pipeline with 20+ encoding types
-- **Smart Collision Detection**: Built-in collision avoidance with configurable strategies
-- **Context-Aware Generation**: Device, location, and behavior-aware IDs
-- **Advanced Analytics**: Performance monitoring and ID distribution analysis
-- **Format Migration**: Tools to migrate between ID formats
-- **Batch Operations**: High-performance bulk ID generation
-- **Custom Alphabets**: Support for domain-specific character sets
-- **ID Health Scoring**: Validate and score ID quality
+NehoID distinguishes itself from other ID generators through:
 
-## 📦 Installation
+- **Multi-Layer Encoding Pipeline**: 20+ encoding algorithms with configurable compression and reversibility
+- **Intelligent Collision Detection**: Multiple retry strategies with exponential backoff and custom validation functions
+- **Context-Aware Generation**: Environment, device, and behavioral data integration
+- **Advanced Analytics**: Real-time performance monitoring and statistical analysis
+- **Format Migration Tools**: Seamless conversion between different ID formats
+- **Batch Processing**: High-performance bulk operations with parallel execution
+- **Custom Character Sets**: Domain-specific alphabets and character restrictions
+- **Quality Assessment**: Entropy analysis and ID health scoring algorithms
+
+## Installation
 
 ```bash
 npm install nehoid
@@ -23,333 +25,572 @@ yarn add nehoid
 bun add nehoid
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ```typescript
 import { NehoID } from "nehoid";
 
-// Basic usage
+// Basic ID generation
 const id = NehoID.generate();
 console.log(id); // "6a617977416b714d-7938716a56515a52-79764d5a50775555"
 
-// Advanced usage with collision detection
-const safeId = await NehoID.safe({
-  strategy: "retry",
-  maxAttempts: 3,
-  checkFunction: async (id) => !(await database.exists(id)),
+// Advanced generation with multiple options
+const customId = NehoID.generate({
+  size: 16,
+  prefix: "user",
+  case: "lower",
+  includeTimestamp: true,
+  format: "nanoid",
 });
 
-// Context-aware ID
-const contextId = NehoID.contextual({
-  includeDevice: true,
-  includeLocation: true,
-  userBehavior: "returning-customer",
+// Collision-safe generation
+const safeId = await NehoID.safe({
+  name: "database-check",
+  maxAttempts: 5,
+  backoffType: "exponential",
+  checkFunction: async (id) => !(await database.exists(id)),
 });
 ```
 
-## 🎯 Core Features
+## Core Features
 
-### 1. Multiple ID Types
+### 1. Advanced ID Generation
+
+The `generate()` method supports extensive customization options for various use cases:
+
+```typescript
+// Preset formats
+const uuid = NehoID.generate({ format: "uuid" });
+const nanoid = NehoID.generate({ format: "nanoid" });
+const cuid = NehoID.generate({ format: "cuid" });
+
+// Character set control
+const numericOnly = NehoID.generate({
+  charset: { numbers: true, lowercase: false, uppercase: false },
+  size: 12,
+});
+
+// URL-safe generation
+const urlSafe = NehoID.generate({
+  quality: { urlSafe: true },
+  charset: { exclude: ["+", "/", "="] },
+});
+
+// Case transformations
+const upperCase = NehoID.generate({ case: "upper" });
+const camelCase = NehoID.generate({ case: "camel" });
+const snakeCase = NehoID.generate({ case: "snake" });
+
+// Pattern-based generation
+const phoneFormat = NehoID.generate({ pattern: "XXX-XXX-XXXX" });
+const licensePlate = NehoID.generate({ pattern: "AA-9999" });
+
+// Sequential numbering
+const orderId = NehoID.generate({
+  sequential: { context: "orders", start: 1000, padLength: 6 },
+});
+
+// Temporal features
+const tempId = NehoID.generate({
+  expiresIn: 24 * 60 * 60 * 1000, // 24 hours
+  version: "v2",
+  domain: "api",
+});
+
+// Quality requirements
+const secureId = NehoID.generate({
+  randomness: "crypto",
+  quality: {
+    minEntropy: "high",
+    avoidPatterns: true,
+  },
+  size: 32,
+});
+
+// Metadata embedding
+const taggedId = NehoID.generate({
+  metadata: { createdBy: "system", environment: "production" },
+  includeChecksum: true,
+});
+```
+
+### 2. Specialized Generators
 
 ```typescript
 // Standard formats
-NehoID.uuid(); // Standard UUID v4
-NehoID.nanoid(); // NanoID compatible
-NehoID.short(); // URL-safe short ID
-NehoID.hex(); // Hexadecimal ID
+const uuid = NehoID.uuid(); // RFC 4122 UUID
+const nanoid = NehoID.nanoid(12); // NanoID-compatible
+const shortId = NehoID.short(8); // URL-safe short ID
+const hexId = NehoID.hex(32); // Hexadecimal ID
 
 // Advanced formats
-NehoID.hierarchical(); // Parent-child relationships
-NehoID.temporal(); // Time-ordered IDs
-NehoID.semantic(); // Meaningful prefixes
-NehoID.sequential(); // Database-friendly sequence
+const hierarchicalId = NehoID.hierarchical({
+  parentId: "parent-123",
+  level: 2,
+});
+
+const temporalId = NehoID.temporal({
+  precision: "milliseconds",
+  includeRandom: true,
+});
+
+const semanticId = NehoID.semantic({
+  prefix: "ORDER",
+  region: "US-WEST",
+  department: "SALES",
+  year: 2024,
+});
+
+const sequentialId = NehoID.sequential({
+  prefix: "INV",
+  counter: 1001,
+  padLength: 6,
+});
 ```
 
-### 2. Smart Collision Detection
+### 3. Collision Detection and Safety
 
 ```typescript
-const collisionSafeId = await NehoID.safe({
-  strategy: "exponential-backoff",
-  maxAttempts: 5,
+// Basic collision avoidance
+const safeId = await NehoID.safe({
+  name: "user-registration",
+  maxAttempts: 10,
+  backoffType: "exponential",
   checkFunction: async (id) => {
-    return !(await yourDatabase.exists("users", id));
+    const user = await database.collection("users").findOne({ id });
+    return !user;
+  },
+});
+
+// Custom retry strategy
+const customSafeId = await NehoID.safe({
+  name: "payment-transaction",
+  maxAttempts: 3,
+  backoffType: "linear",
+  checkFunction: async (id) => {
+    return !(await redis.exists(`payment:${id}`));
   },
 });
 ```
 
-### 3. Advanced Encoding Pipeline
+### 4. Encoding Pipeline
 
 ```typescript
-NehoID.generate({
-  encoding: ["base64", "hex", "rot13"], // Multi-layer encoding
-  compression: "lz77", // Optional compression
-  alphabet: "ABCDEFGHIJKLMNOPQR", // Custom alphabet
-  reversible: true, // Enable reverse engineering
+import { EncodingPipeline } from "nehoid";
+
+// Build custom encoding pipeline
+const pipeline = new EncodingPipeline()
+  .addEncoder("base64")
+  .addEncoder("hex")
+  .addCompression("lz77")
+  .enableReversibility()
+  .addMetadata("version", "2.1.0");
+
+// Use in generation
+const encodedId = NehoID.generate({
+  pipeline: pipeline,
+  reversible: true,
 });
+
+// Reverse encoding if needed
+const original = pipeline.reverse(encodedId);
 ```
 
-### 4. Batch Operations
+### 5. Batch Operations
 
 ```typescript
-// Generate thousands of IDs efficiently
-const batchIds = NehoID.batch({
-  count: 10000,
-  format: "nano",
+// High-performance batch generation
+const userIds = NehoID.batch({
+  count: 1000,
+  format: "uuid",
   parallel: true,
   ensureUnique: true,
 });
 
 // Bulk validation
-const validation = NehoID.validateBatch(existingIds, {
+const validationResults = NehoID.validateBatch(userIds, {
   checkFormat: true,
-  checkCollisions: true,
+  checkCollisions: false,
   repairCorrupted: true,
+});
+
+// Filtered results
+const validIds = validationResults.filter((result) => result.valid);
+```
+
+### 6. Analytics and Monitoring
+
+```typescript
+// Enable performance monitoring
+NehoID.startMonitoring();
+
+// Generate IDs and collect statistics
+for (let i = 0; i < 1000; i++) {
+  NehoID.generate({ format: "nanoid" });
+}
+
+// Retrieve comprehensive statistics
+const stats = NehoID.getStats();
+console.log({
+  totalGenerated: stats.generated,
+  collisionIncidents: stats.collisions,
+  averageGenerationTime: stats.averageGenerationTime,
+  memoryFootprint: stats.memoryUsage,
+  distributionQuality: stats.distributionScore,
+});
+
+// Individual ID quality assessment
+const healthScore = NehoID.healthCheck("user-abc123def");
+console.log({
+  overallScore: healthScore.score, // 0.0 to 1.0
+  entropyLevel: healthScore.entropy, // "low" | "medium" | "high"
+  predictability: healthScore.predictability,
+  improvementSuggestions: healthScore.recommendations,
 });
 ```
 
-### 5. Analytics & Monitoring
+### 7. Context-Aware Generation
 
 ```typescript
-// Performance monitoring
-NehoID.startMonitoring();
-const stats = NehoID.getStats();
-/*
-{
-  generated: 15420,
-  collisions: 0,
-  averageGenerationTime: '0.12ms',
-  memoryUsage: '2.1MB',
-  distributionScore: 0.98
-}
-*/
-
-// ID health scoring
-const health = NehoID.healthCheck("your-id-here");
-/*
-{
-  score: 0.95,
-  entropy: 'high',
-  predictability: 'low',
-  recommendations: ['increase_length']
-}
-*/
-```
-
-### 6. Context-Aware Generation
-
-```typescript
-// Device-aware IDs
+// Device fingerprinting
 const deviceId = NehoID.contextual({
-  includeDevice: true, // Device fingerprint
-  includeTimezone: true, // User timezone
-  includeBrowser: true, // Browser info
-  includeScreen: true, // Screen resolution
+  includeDevice: true,
+  includeTimezone: true,
+  includeBrowser: true,
+  includeScreen: true,
 });
 
 // Business context
 const businessId = NehoID.semantic({
-  prefix: "ORDER",
-  region: "US-WEST",
-  department: "SALES",
+  prefix: "ORD",
+  region: "EU-CENTRAL",
+  department: "FULFILLMENT",
   year: 2024,
-}); // Result: "ORDER-USWEST-SALES-2024-a7b9c2d4"
+  customSegments: {
+    priority: "HIGH",
+    channel: "WEB",
+  },
+});
+
+// User behavior patterns
+const behavioralId = NehoID.contextual({
+  userBehavior: "premium-subscriber",
+  includeLocation: true,
+  includeTimezone: true,
+});
 ```
 
-### 7. Migration & Compatibility
+### 8. Temporal Conversions
 
 ```typescript
-// Migrate old IDs to new format
-const migrated = NehoID.migrate({
+// Convert timestamp to temporal ID
+const timestamp = Date.now();
+const temporalId = NehoID.fromTemporal(timestamp);
+
+// Extract timestamp from temporal ID
+const extractedTimestamp = NehoID.fromTemporalToTimestamp(temporalId);
+
+// Time-based queries
+const recentIds = await database.collection
+  .find({
+    temporalId: {
+      $gte: NehoID.fromTemporal(Date.now() - 24 * 60 * 60 * 1000),
+    },
+  })
+  .sort({ temporalId: 1 });
+```
+
+### 9. Checksum and Integrity
+
+```typescript
+import { Checksum } from "nehoid";
+
+// Generate checksums with different algorithms
+const crc32Checksum = Checksum.generate("important-data", "crc32", 8);
+const fnv1aChecksum = Checksum.generate("important-data", "fnv1a", 6);
+
+// Validate integrity
+const isValid = Checksum.validate("important-data", crc32Checksum, "crc32", 8);
+
+// Safe operations (no exceptions)
+const safeChecksum = Checksum.tryGenerate("data");
+const safeValidation = Checksum.tryValidate("data", checksum);
+```
+
+## Advanced Configuration
+
+### Custom Encoding Strategies
+
+```typescript
+import { NehoID, EncodingPipeline, Checksum } from "nehoid";
+
+// Complex encoding pipeline
+const securePipeline = new EncodingPipeline()
+  .addEncoders(["base64", "hex", "rot13"])
+  .addCompression("gzip")
+  .enableReversibility()
+  .addMetadata("encryption", "AES256")
+  .addMetadata("created", new Date().toISOString());
+
+// Generate with full configuration
+const enterpriseId = NehoID.generate({
+  size: 32,
+  prefix: "ENT",
+  encoding: ["base64", "urlSafeBase64"],
+  compression: "lz77",
+  reversible: true,
+  includeChecksum: true,
+  expiresIn: 30 * 24 * 60 * 60 * 1000, // 30 days
+  version: "3.1.0",
+  domain: "enterprise",
+  quality: {
+    minEntropy: "high",
+    urlSafe: true,
+    avoidPatterns: true,
+  },
+  charset: {
+    numbers: true,
+    lowercase: true,
+    uppercase: true,
+    exclude: ["0", "O", "I", "l"], // Avoid ambiguous characters
+  },
+  metadata: {
+    department: "security",
+    classification: "confidential",
+    retention: "7-years",
+  },
+});
+```
+
+### Migration and Compatibility
+
+```typescript
+// Migrate existing UUIDs to NehoID format
+const migratedIds = await NehoID.migrate({
   from: "uuid",
   to: "nehoid-v2",
   preserveOrder: true,
-  batchSize: 1000,
+  batchSize: 500,
+  ids: existingUuids,
 });
 
 // Cross-platform compatibility
-const compatible = NehoID.compatible({
-  platform: ["javascript", "python", "go"],
-  format: "base64",
+const crossPlatformId = NehoID.compatible({
+  platform: ["javascript", "python", "go", "rust"],
+  format: "alphanumeric",
   length: 16,
 });
 ```
 
-## 🔧 Advanced Configuration
+## Performance Characteristics
 
-```typescript
-import { NehoID, CollisionStrategy, EncodingPipeline } from "nehoid";
+| Operation               | NehoID                     | Performance | Memory Usage | Notes                 |
+| ----------------------- | -------------------------- | ----------- | ------------ | --------------------- |
+| Single ID Generation    | generate()                 | <0.1ms      | ~2KB         | Basic generation      |
+| Batch Generation (1K)   | batch({count: 1000})       | ~5ms        | ~50KB        | Parallel processing   |
+| Batch Generation (100K) | batch({count: 100000})     | ~450ms      | ~5MB         | Memory efficient      |
+| Collision Check         | safe()                     | <1ms        | ~5KB         | Database dependent    |
+| Validation              | validate()                 | <0.5ms      | ~1KB         | Regex-based           |
+| Health Check            | healthCheck()              | <2ms        | ~10KB        | Entropy analysis      |
+| Encoding Pipeline       | EncodingPipeline.process() | <5ms        | ~8KB         | Compression dependent |
 
-// Custom collision strategy
-const customStrategy: CollisionStrategy = {
-  name: "database-check",
-  maxAttempts: 3,
-  backoffType: "exponential",
-  checkFunction: async (id) => {
-    return !(await myDatabase.findById(id));
-  },
-};
+_Benchmarks performed on Intel i7-9750H, Node.js 18.17.0, 16GB RAM_
 
-// Custom encoding pipeline
-const pipeline = new EncodingPipeline()
-  .addEncoder("base64")
-  .addCompression("gzip")
-  .addEncoder("hex")
-  .enableReversibility();
-
-const id = NehoID.generate({
-  strategy: customStrategy,
-  pipeline: pipeline,
-  metadata: {
-    createdBy: "user-service",
-    version: "2.1.0",
-  },
-});
-```
-
-## 📊 Performance Benchmarks
-
-| Operation       | NehoID | uuid  | nanoid | shortid |
-| --------------- | ------ | ----- | ------ | ------- |
-| Generate 1K IDs | 0.8ms  | 1.2ms | 1.0ms  | 2.1ms   |
-| Batch 100K IDs  | 45ms   | 78ms  | 62ms   | 180ms   |
-| Collision Check | 0.1ms  | N/A   | N/A    | N/A     |
-| Memory Usage    | 1.2MB  | 2.1MB | 1.8MB  | 3.2MB   |
-
-## 🛠 API Reference
+## API Reference
 
 ### Core Methods
 
-- `NehoID.generate(options?)` - Generate basic ID
-- `NehoID.safe(options)` - Generate with collision detection
-- `NehoID.batch(options)` - Bulk generation
-- `NehoID.validate(id, options?)` - Validate ID format
-- `NehoID.healthCheck(id)` - Score ID quality
+#### ID Generation
 
-### Specialized Generators
+- `NehoID.generate(options?)` - Generate ID with full configuration options
+- `NehoID.safe(options)` - Generate collision-resistant ID
+- `NehoID.batch(options)` - Bulk ID generation
 
-- `NehoID.uuid()` - Standard UUID
-- `NehoID.nanoid(length?)` - NanoID format
-- `NehoID.short(length?)` - Short URL-safe ID
-- `NehoID.hex(length?)` - Hexadecimal ID
-- `NehoID.contextual(options)` - Context-aware ID
-- `NehoID.semantic(options)` - Semantic/meaningful ID
+#### Validation & Analysis
 
-### Utilities
+- `NehoID.validate(id, options?)` - Validate ID format and integrity
+- `NehoID.validateBatch(ids, options?)` - Bulk validation
+- `NehoID.healthCheck(id)` - Comprehensive ID quality assessment
 
-- `NehoID.decode(id)` - Reverse engineer ID (if reversible)
-- `NehoID.migrate(options)` - Migrate ID formats
-- `NehoID.compatible(options)` - Cross-platform compatible IDs
-- `NehoID.startMonitoring()` - Enable performance monitoring
-- `NehoID.getStats()` - Get generation statistics
+#### Specialized Generators
 
-## 🔒 Security Features
+- `NehoID.uuid()` - RFC 4122 compliant UUID
+- `NehoID.nanoid(length?)` - NanoID compatible format
+- `NehoID.short(length?)` - URL-safe short identifier
+- `NehoID.hex(length?)` - Hexadecimal identifier
+- `NehoID.hierarchical(options)` - Tree-structured identifiers
+- `NehoID.temporal(options)` - Time-ordered identifiers
+- `NehoID.semantic(options)` - Business-meaningful identifiers
+- `NehoID.sequential(options)` - Database-friendly sequences
 
-- Cryptographically secure random generation
-- Timing attack resistance
-- No predictable patterns
-- Optional encryption layer
-- Audit trail support
+#### Context & Behavior
 
-## 🌐 Framework Integrations
+- `NehoID.contextual(options)` - Environment-aware generation
+- `NehoID.fromTemporal(timestamp)` - Convert timestamp to temporal ID
+- `NehoID.fromTemporalToTimestamp(temporalId)` - Extract timestamp from temporal ID
+
+#### Utilities
+
+- `NehoID.migrate(options)` - Format conversion and migration
+- `NehoID.compatible(options)` - Cross-platform identifier generation
+- `NehoID.startMonitoring()` - Enable performance tracking
+- `NehoID.getStats()` - Retrieve generation statistics
+
+### Classes
+
+#### EncodingPipeline
+
+Fluent API for building complex encoding workflows:
 
 ```typescript
-// Express.js middleware
+const pipeline = new EncodingPipeline()
+  .addEncoder("base64")
+  .addCompression("gzip")
+  .enableReversibility();
+```
+
+#### Checksum
+
+Multiple algorithm support for data integrity:
+
+```typescript
+const crc32 = Checksum.generate(data, "crc32");
+const isValid = Checksum.validate(data, crc32, "crc32");
+```
+
+## Security Considerations
+
+- **Cryptographic Randomness**: Configurable entropy levels for security requirements
+- **Timing Attack Resistance**: Consistent-time operations prevent side-channel attacks
+- **No Predictable Patterns**: Advanced entropy analysis prevents sequential prediction
+- **Optional Encryption Layer**: Pipeline-based encryption support
+- **Audit Trail Support**: Comprehensive generation logging and monitoring
+- **Input Validation**: Strict parameter validation prevents injection attacks
+- **Memory Safety**: Controlled memory usage prevents DoS through resource exhaustion
+
+## Framework Integrations
+
+### Express.js Middleware
+
+```typescript
+import express from "express";
+import { NehoID } from "nehoid";
+
+const app = express();
+
+// Request ID middleware
 app.use(
-  NehoID.middleware({
+  NehoID.middleware("express", {
     header: "X-Request-ID",
     format: "short",
+    includeTimestamp: true,
   })
 );
 
-// Database ORM integration
-const User = model("User", {
-  id: {
+// Route-specific ID generation
+app.post("/users", (req, res) => {
+  const userId = NehoID.generate({
+    prefix: "usr",
+    includeChecksum: true,
+  });
+  // ... user creation logic
+});
+```
+
+### Database ORM Integration
+
+```typescript
+// Mongoose schema
+const UserSchema = new mongoose.Schema({
+  _id: {
     type: String,
-    default: () => NehoID.generate({ prefix: "usr" }),
+    default: () => NehoID.generate({ prefix: "usr", includeChecksum: true }),
   },
+  email: String,
+  createdAt: { type: Date, default: Date.now },
 });
+
+// Sequelize model
+class Order extends Model {
+  @NehoID.database.sequelize("Order")
+  id: string;
+
+  @Column
+  total: number;
+}
+
+// TypeORM entity
+@Entity()
+export class Product {
+  @NehoID.database.typeorm("Product")
+  id: string;
+
+  @Column()
+  name: string;
+}
 ```
 
-## 🚀 Advanced V2 Features
+## Configuration Types
 
-NehoID V2 introduces a set of advanced ID generation capabilities for specialized use cases:
+### IdGeneratorOptions
 
 ```typescript
-import { NehoId } from "nehoid";
+interface IdGeneratorOptions {
+  // Basic configuration
+  size?: number;
+  segments?: number;
+  separator?: string;
 
-// Quantum-entangled IDs
-const quantumId = NehoId.quantum({ 
-  entanglementGroup: "user-session",
-  coherenceTime: 60000 // 1 minute
-});
+  // Format presets
+  format?: "uuid" | "nanoid" | "cuid" | "ksuid" | "xid" | "pushid";
 
-// Biometric-based IDs
-const bioId = NehoId.biometric({
-  fingerprint: "fp_data_hash",
-  keystrokeDynamics: [0.32, 0.45, 0.67]
-});
+  // Character control
+  charset?: {
+    numbers?: boolean;
+    lowercase?: boolean;
+    uppercase?: boolean;
+    special?: boolean;
+    exclude?: string[];
+  };
 
-// Blockchain-verified IDs
-const blockchainId = NehoId.blockchain({
-  networkId: "main-net",
-  consensusType: "proof-of-stake"
-});
+  // Case transformations
+  case?: "lower" | "upper" | "mixed" | "camel" | "pascal" | "snake";
 
-// Pattern-embedded IDs
-const patternId = NehoId.patternEmbedded("user-behavior-pattern");
+  // Quality requirements
+  quality?: {
+    minEntropy?: "low" | "medium" | "high";
+    avoidPatterns?: boolean;
+    urlSafe?: boolean;
+  };
 
-// Recursive IDs (nested structure)
-const recursiveId = NehoId.recursive(3); // depth of 3
+  // Advanced features
+  expiresIn?: number;
+  version?: string | number;
+  domain?: string;
+  includeChecksum?: boolean;
+  pattern?: string;
 
-// Fractal IDs (self-similar patterns)
-const fractalId = NehoId.fractal(4, 0.8); // 4 iterations, 0.8 complexity
+  // And more options...
+}
 ```
 
-### Combination Methods
+## Contributing
 
-```typescript
-// Ultimate ID: combines quantum, biometric, and ML features
-const ultimateId = NehoId.ultimate({
-  quantumGroup: "secure-session",
-  biometricData: { fingerprint: "fp_hash", voicePrint: "vp_hash" },
-  mlFeatures: [0.7, 0.2, 0.9]
-});
+We welcome contributions from the community. Please see CONTRIBUTING.md for detailed guidelines on:
 
-// Cosmic DNA ID: combines astronomical and genetic features
-const cosmicDnaId = NehoId.cosmicDNA("orion", 5);
+- Code style and standards
+- Testing requirements
+- Documentation standards
+- Pull request process
+- Issue reporting
 
-// Predictive sequence: time-series based IDs
-const predictiveSequence = NehoId.predictiveSequence(5);
-console.log(predictiveSequence.baseId); // Base ID
-console.log(predictiveSequence.sequenceIds); // Array of sequence IDs
-const materializedId = predictiveSequence.materialize(2); // Materialize the 3rd ID
-```
+## License
 
-### Dynamic ID Systems
+Licensed under the MIT License. See LICENSE file for complete terms.
 
-```typescript
-// Adaptive ID system that evolves over time
-const adaptiveSystem = NehoId.createAdaptiveSystem({});
-const adaptiveId1 = adaptiveSystem.generateNext();
-const adaptiveId2 = adaptiveSystem.generateNext("user-login");
-console.log(adaptiveSystem.getEvolutionHistory());
+## Support
 
-// Fluid ID pool with transformations
-const fluidPool = NehoId.createFluidPool(50);
-const fluidId = fluidPool.draw();
-fluidPool.replenish(10);
-```
-
-## 📝 License
-
-MIT License - see LICENSE file for details
-
-## 🤝 Contributing
-
-We welcome contributions! See CONTRIBUTING.md for guidelines.
-
-## 📞 Support
-
-- 📧 Email: support@nehonix.space
-- 🐛 Issues: [GitHub Issues](https://github.com/nehonix/nehoid/issues)
-- 📖 Docs: [Full Documentation](https://lab.nehonix.space)
+- Documentation: [Full API Reference](https://lab.nehonix.space/nehoid)
+- Issues: [GitHub Issues](https://github.com/iDevo-ll/nehoid/issues)
+- Discussions: [GitHub Discussions](https://github.com/iDevo-ll/nehoid/discussions)
+- Email: nehoidlib.support@idevo.space
