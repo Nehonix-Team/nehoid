@@ -7,7 +7,7 @@ import {
 import { Encoder } from "./encoder.js";
 
 export class Generator {
-  private static readonly DEFAULT_OPTIONS: Required<IdGeneratorOptions> = {
+  private static readonly DEFAULT_OPTIONS: Partial<IdGeneratorOptions> = {
     size: 8,
     segments: 4,
     separator: "-",
@@ -17,6 +17,9 @@ export class Generator {
     alphabet: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
     compression: "none",
     reversible: false,
+    // New options with defaults
+    randomness: 'fast',
+    includeChecksum: false,
   };
 
   private static generateRandomString(
@@ -30,7 +33,21 @@ export class Generator {
   }
 
   static generate(options: Partial<IdGeneratorOptions> = {}): string {
-    const opts = { ...this.DEFAULT_OPTIONS, ...options };
+    const opts = {
+      size: 8,
+      segments: 4,
+      separator: "-",
+      encoding: "rawHex" as const,
+      prefix: "",
+      includeTimestamp: false,
+      alphabet: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+      compression: "none" as const,
+      reversible: false,
+      randomness: 'fast' as const,
+      includeChecksum: false,
+      ...this.DEFAULT_OPTIONS,
+      ...options
+    };
     const segments: string[] = [];
 
     if (opts.includeTimestamp) {
