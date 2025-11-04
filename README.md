@@ -593,4 +593,4 @@ Licensed under the MIT License. See LICENSE file for complete terms.
 - Documentation: [Full API Reference](https://lab.nehonix.space/nehoid)
 - Issues: [GitHub Issues](https://github.com/iDevo-ll/nehoid/issues)
 - Discussions: [GitHub Discussions](https://github.com/iDevo-ll/nehoid/discussions)
-- Email: nehoidlib.support@idevo.space
+- Email: libnehoid.support@nehonix.space
