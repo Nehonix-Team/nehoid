@@ -8,7 +8,7 @@
  * Provides request ID generation and tracking
  */
 
-import { NehoID } from "../index";
+import { NehoID } from "../mods/nehoid";
 
 /**
  * Express middleware options

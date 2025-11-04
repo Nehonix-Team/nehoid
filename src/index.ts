@@ -21,8 +21,8 @@
  * // Validate an ID
  * const isValid = NehoID.validate(id);
  *
- * // Use middleware for Express.js
- * app.use(NehoIDMiddleware('express'));
+ * // Use middleware for XyPriss.js
+ * app.use(NehoIDMiddleware('XyPriss'));
  *
  * // Integrate with Mongoose
  * const userSchema = new mongoose.Schema({
@@ -31,13 +31,13 @@
  * ```
  */
 
-import { EncodingPipeline } from "./core/pipeline.js";
-import { createMiddleware } from "./integrations/middleware.js";
+import { EncodingPipeline } from "./core/pipeline";
+import { createMiddleware } from "./integrations/middleware";
 import {
   mongooseField,
   sequelizeField,
   typeormDecorator,
-} from "./integrations/database.js";
+} from "./integrations/database";
 import {
   IdGeneratorOptions,
   CollisionStrategy,
@@ -50,8 +50,8 @@ import {
   MigrationOptions,
   CompatibilityOptions,
 } from "./types";
-import { NehoID } from "./mods/nehoid.js";
-import { Checksum } from "./mods/checksum.js";
+import { NehoID } from "./mods/nehoid";
+import { Checksum } from "./mods/checksum";
 
 // Re-export types
 /**
@@ -134,14 +134,14 @@ export { Checksum };
 // Framework integrations
 /**
  * Creates middleware for integrating NehoID with web frameworks.
- * Supports Express.js, Fastify, Koa, and other popular Node.js frameworks.
+ * Supports XyPriss.js, Fastify, Koa, and other popular Node.js frameworks.
  *
  * @example
  * ```typescript
- * // Express.js integration
- * const express = require('express');
- * const app = express();
- * app.use(NehoIDMiddleware('express', { autoGenerate: true }));
+ * // XyPriss.js integration
+ * const XyPriss = require('XyPriss');
+ * const app = XyPriss();
+ * app.use(NehoIDMiddleware('XyPriss', { autoGenerate: true }));
  * ```
  */
 export const NehoIDMiddleware = createMiddleware;
@@ -189,14 +189,13 @@ export { EncodingPipeline };
  * Encoder class for various encoding schemes and transformations.
  * Provides methods for base64, hex, custom alphabets, and cryptographic encoding.
  */
-export { Encoder } from "./core/encoder.js";
+export { Encoder } from "./core/encoder";
 
 // For CommonJS compatibility, also export as module.exports if available
 if (typeof module !== "undefined" && module.exports) {
   module.exports = NehoID;
   module.exports.default = NehoID;
   module.exports.NehoID = NehoID;
-  module.exports.middleware = NehoID.middleware;
   module.exports.database = database;
   module.exports.EncodingPipeline = EncodingPipeline;
 }

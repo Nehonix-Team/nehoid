@@ -1,4 +1,4 @@
-import { createMiddleware } from "../integrations/middleware.js";
+import { createMiddleware } from "../integrations/middleware";
 import {
   IdGeneratorOptions,
   CollisionStrategy,
@@ -10,14 +10,14 @@ import {
   Stats,
   MigrationOptions,
   CompatibilityOptions,
-} from "../types/index.js";
-import { NehoIDV2 } from "../exports/v2.export.js";
-import { CoreGenerators } from "./generators.js";
-import { SpecializedGenerators } from "./specialized.js";
-import { Validators } from "./validation.js";
-import { Monitor } from "./monitoring.js";
-import { Advanced } from "./advanced.js";
-import { Checksum } from "./checksum.js";
+} from "../types/index";
+import { NehoIDV2 } from "../exports/v2.export";
+import { CoreGenerators } from './generators';
+import { SpecializedGenerators } from './specialized';
+import { Validators } from './validation';
+import { Monitor } from './monitoring';
+import { Advanced } from './advanced';
+import { Checksum } from './checksum';
 
 /**
  * The main NehoID class providing comprehensive ID generation, validation, and management capabilities.
@@ -68,22 +68,6 @@ import { Checksum } from "./checksum.js";
  * ```
  */
 export class NehoID extends NehoIDV2 {
-  /**
-   * Creates middleware for integrating NehoID with web frameworks.
-   *
-   * @param args - Arguments to pass to the middleware creation function
-   * @returns A middleware function compatible with the target framework
-   *
-   * @example
-   * ```typescript
-   * // Express.js middleware
-   * app.use(NehoID.middleware('express', { generateOnRequest: true }));
-   * ```
-   */
-  static middleware(...p: Parameters<typeof createMiddleware>) {
-    return createMiddleware(...p);
-  }
-
   /**
    * Generates a unique ID with optional configuration.
    *

@@ -3,7 +3,7 @@
  * Provides adapters for popular ORMs and database libraries
  */
 
-import { NehoID } from '../index';
+import { NehoID } from '../mods/nehoid';
 
 /**
  * Options for ID field generation
