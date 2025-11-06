@@ -13,16 +13,13 @@
  *
  * @example
  * ```typescript
- * import { NehoID, NehoIDMiddleware, database } from 'nehoid';
+ * import { NehoID, database } from 'nehoid';
  *
  * // Generate a unique ID
  * const id = NehoID.generate();
  *
  * // Validate an ID
  * const isValid = NehoID.validate(id);
- *
- * // Use middleware for XyPriss.js
- * app.use(NehoIDMiddleware('XyPriss'));
  *
  * // Integrate with Mongoose
  * const userSchema = new mongoose.Schema({
@@ -130,25 +127,6 @@ export { NehoID as ID };
  */
 export { Checksum };
 
-// Framework integrations
-/**
- * Middleware for integrating NehoID with web frameworks.
- * 
- * **IMPORTANT**: Import middleware from 'nehoid/middleware' instead of 'nehoid'
- * to avoid bundling server-side code in browser applications.
- *
- * @example
- * ```typescript
- * // Correct way - separate import
- * import { NehoIDMiddleware } from 'nehoid/middleware';
- * 
- * const app = XyPriss();
- * app.use(NehoIDMiddleware({ format: 'short' }));
- * ```
- * 
- * @deprecated Import from 'nehoid/middleware' instead
- */
-export const NehoIDMiddleware = undefined as any;
 
 /**
  * Database integration helpers for popular ORMs.

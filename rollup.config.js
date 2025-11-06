@@ -51,66 +51,11 @@ export default [
       ...Object.keys(pkg.peerDependencies || {}),
     ],
   },
-  // Middleware ESM build (server-only)
-  {
-    input: "src/middleware.ts",
-    output: {
-      file: "dist/middleware.esm.js",
-      format: "es",
-      sourcemap: true,
-      exports: "named",
-    },
-    plugins: [
-      resolve(),
-      commonjs(),
-      typescript({
-        tsconfig: "./tsconfig.json",
-        declaration: false,
-      }),
-    ],
-    external: [
-      ...Object.keys(pkg.dependencies || {}),
-      ...Object.keys(pkg.peerDependencies || {}),
-    ],
-  },
-  // Middleware CommonJS build (server-only)
-  {
-    input: "src/middleware.ts",
-    output: {
-      file: "dist/middleware.cjs",
-      format: "cjs",
-      sourcemap: true,
-      exports: "auto",
-      esModule: false,
-    },
-    plugins: [
-      resolve(),
-      commonjs(),
-      typescript({
-        tsconfig: "./tsconfig.json",
-        declaration: false,
-      }),
-    ],
-    external: [
-      ...Object.keys(pkg.dependencies || {}),
-      ...Object.keys(pkg.peerDependencies || {}),
-    ],
-  },
-  // TypeScript declarations for main entry
+  // TypeScript declarations
   {
     input: "src/index.ts",
     output: {
       file: "dist/index.d.ts",
-      format: "es",
-    },
-    plugins: [dts()],
-    external: ["nehonix-uri-processor"],
-  },
-  // TypeScript declarations for middleware
-  {
-    input: "src/middleware.ts",
-    output: {
-      file: "dist/middleware.d.ts",
       format: "es",
     },
     plugins: [dts()],

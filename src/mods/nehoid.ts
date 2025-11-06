@@ -1,4 +1,3 @@
-import { createMiddleware } from "../integrations/middleware";
 import {
   IdGeneratorOptions,
   CollisionStrategy,
