@@ -1,4 +1,4 @@
-import { __processor__ } from "nehonix-uri-processor";
+import { __processor__ } from "../utils/processor-wrapper";
 
 /**
  * Supported encoding types for data transformation.

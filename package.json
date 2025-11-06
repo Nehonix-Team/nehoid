@@ -240,7 +240,12 @@
       "@typescript-eslint/no-unused-vars": "error"
     }
   },
-  "dependencies": {
+  "peerDependencies": {
     "nehonix-uri-processor": "^2.3.17"
+  },
+  "peerDependenciesMeta": {
+    "nehonix-uri-processor": {
+      "optional": true
+    }
   }
 }
