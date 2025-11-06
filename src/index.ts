@@ -32,7 +32,6 @@
  */
 
 import { EncodingPipeline } from "./core/pipeline";
-import { createMiddleware } from "./integrations/middleware";
 import {
   mongooseField,
   sequelizeField,
@@ -133,18 +132,23 @@ export { Checksum };
 
 // Framework integrations
 /**
- * Creates middleware for integrating NehoID with web frameworks.
- * Supports XyPriss.js, Fastify, Koa, and other popular Node.js frameworks.
+ * Middleware for integrating NehoID with web frameworks.
+ * 
+ * **IMPORTANT**: Import middleware from 'nehoid/middleware' instead of 'nehoid'
+ * to avoid bundling server-side code in browser applications.
  *
  * @example
  * ```typescript
- * // XyPriss.js integration
- * const XyPriss = require('XyPriss');
+ * // Correct way - separate import
+ * import { NehoIDMiddleware } from 'nehoid/middleware';
+ * 
  * const app = XyPriss();
- * app.use(NehoIDMiddleware('XyPriss', { autoGenerate: true }));
+ * app.use(NehoIDMiddleware({ format: 'short' }));
  * ```
+ * 
+ * @deprecated Import from 'nehoid/middleware' instead
  */
-export const NehoIDMiddleware = createMiddleware;
+export const NehoIDMiddleware = undefined as any;
 
 /**
  * Database integration helpers for popular ORMs.
@@ -191,11 +195,5 @@ export { EncodingPipeline };
  */
 export { Encoder } from "./core/encoder";
 
-// For CommonJS compatibility, also export as module.exports if available
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = NehoID;
-  module.exports.default = NehoID;
-  module.exports.NehoID = NehoID;
-  module.exports.database = database;
-  module.exports.EncodingPipeline = EncodingPipeline;
-}
+// Default export for convenience
+export default NehoID;

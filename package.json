@@ -1,6 +1,6 @@
 {
   "name": "nehoid",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "type": "module",
   "description": "Advanced unique ID generation utility with multi-layer encoding, collision detection, and context-aware features",
   "main": "./dist/index.cjs",
@@ -12,7 +12,16 @@
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
+    "./middleware": {
+      "import": "./dist/middleware.esm.js",
+      "require": "./dist/middleware.cjs",
+      "types": "./dist/middleware.d.ts"
+    },
     "./package.json": "./package.json"
+  },
+  "browser": {
+    "./dist/middleware.esm.js": false,
+    "./dist/middleware.cjs": false
   },
   "files": [
     "dist",
