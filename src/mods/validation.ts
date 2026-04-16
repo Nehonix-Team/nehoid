@@ -44,34 +44,31 @@ export class Validators {
    * Validates multiple IDs in a single batch operation.
    *
    * This method is optimized for validating large numbers of IDs efficiently.
-   * It processes IDs in parallel when possible and returns results in the same order.
+   * It processes IDs and categorizes them into valid, invalid, and duplicates.
    *
    * @param ids - Array of ID strings to validate
    * @param options - Optional validation configuration applied to all IDs
-   * @returns Array of boolean values corresponding to each input ID's validation result
+   * @returns An object containing arrays of valid, invalid, and duplicate IDs
    *
    * @example
    * ```typescript
-   * const ids = ['user-123', 'admin-456', 'guest-789'];
-   * const results = Validators.validateBatch(ids);
-   * // Output: [true, true, false]
-   *
-   * // With detailed validation
-   * const detailedResults = Validators.validateBatch(ids, {
-   *   checkFormat: true,
-   *   checkCollisions: true
-   * });
-   * ```
-   *
-   * @example
-   * ```typescript
-   * // Process validation results
-   * const validationResults = Validators.validateBatch(userIds);
-   * const validIds = userIds.filter((_, index) => validationResults[index]);
-   * const invalidCount = validationResults.filter(result => !result).length;
+   * const ids = ['user-123', 'admin-456', 'guest-789', 'user-123'];
+   * const result = Validators.validateBatch(ids, { checkCollisions: true });
+   * // Output: {
+   * //   valid: ['user-123', 'admin-456'],
+   * //   invalid: ['guest-789'],
+   * //   duplicates: ['user-123']
+   * // }
    * ```
    */
-  static validateBatch(ids: string[], options?: ValidationOptions) {
+  static validateBatch(
+    ids: string[],
+    options?: ValidationOptions,
+  ): {
+    valid: string[];
+    invalid: string[];
+    duplicates: string[];
+  } {
     return Validator.validateBatch(ids, options);
   }
 

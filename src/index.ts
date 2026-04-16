@@ -39,9 +39,9 @@ import {
   Stats,
   MigrationOptions,
   CompatibilityOptions,
-} from "./types";
-import { NehoID } from "./mods/nehoid";
-import { Checksum } from "./mods/checksum";
+} from "./types/index.js";
+import { NehoID } from "./mods/nehoid.js";
+import { Checksum } from "./mods/checksum.js";
 
 // Re-export types
 /**
@@ -125,7 +125,7 @@ export { Checksum };
  * Encoder class for various encoding schemes and transformations.
  * Provides methods for base64, hex, custom alphabets, and cryptographic encoding.
  */
-export { Encoder } from "./core/encoder";
+export { Encoder } from "./core/encoder.js";
 
 // Default export for convenience
 export default NehoID;

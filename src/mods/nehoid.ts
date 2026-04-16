@@ -9,304 +9,399 @@ import {
   Stats,
   MigrationOptions,
   CompatibilityOptions,
-} from "../types/index";
-import { SpecializedGenerators } from './specialized';
-import { Validators } from './validation';
-import { Monitor } from './monitoring';
-import { Advanced } from './advanced';
-import { Checksum } from './checksum';
-import { Generator } from "../core/generator";
+} from "../types/index.js";
+import { SpecializedGenerators } from "./specialized.js";
+import { Validators } from "./validation.js";
+import { Monitor } from "./monitoring.js";
+import { Advanced } from "./advanced.js";
+import { Checksum } from "./checksum.js";
+import { Generator } from "../core/generator.js";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Pattern placeholder → replacement rules. */
+const PATTERN_REPLACERS: Record<string, () => string> = {
+  X: () => String.fromCharCode(65 + Math.floor(Math.random() * 26)), // A-Z
+  A: () => String.fromCharCode(65 + Math.floor(Math.random() * 26)), // A-Z
+  a: () => String.fromCharCode(97 + Math.floor(Math.random() * 26)), // a-z
+  9: () => String.fromCharCode(48 + Math.floor(Math.random() * 10)), // 0-9
+};
+
+const PATTERN_REGEX = /[XAa9]/g;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NehoID
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * The main NehoID class providing comprehensive ID generation, validation, and management capabilities.
+ * Central facade for all ID generation, validation, monitoring, and migration
+ * operations provided by the NehoID library.
  *
- * This class offers both simple and advanced ID generation methods, collision-resistant options,
- * monitoring tools, and compatibility with various platforms and databases. The generate method
- * provides extensive customization including preset formats (UUID, NanoID, CUID, etc.), character
- * set control, case transformations, quality requirements, expiration timestamps, versioning,
- * sequential numbering, pattern-based generation, and metadata embedding.
+ * Every public method is **static** — no instantiation required. Internally the
+ * class delegates to specialised sub-modules ({@link Generator}, {@link Validators},
+ * {@link Monitor}, {@link Advanced}, etc.) and adds orchestration, option
+ * pre-processing, and monitoring instrumentation on top.
  *
- * @example
+ * ---
+ *
+ * ### Quick-start
+ *
  * ```typescript
- * // Basic ID generation
- * const id = NehoID.generate();
+ * import { NehoID } from 'nehoid';
  *
- * // Preset formats
- * const uuid = NehoID.generate({ format: 'uuid' });
- * const nanoid = NehoID.generate({ format: 'nanoid' });
+ * // ── Simple generation ──────────────────────────────────────────────────────
+ * const id   = NehoID.generate();                         // default settings
+ * const uuid = NehoID.generate({ format: 'uuid' });       // RFC 4122 UUID
+ * const nano = NehoID.nanoid(16);                         // NanoID, length 16
+ * const hex  = NehoID.hex(32);                            // 32-char hex string
  *
- * // Advanced customization
- * const customId = NehoID.generate({
- *   size: 16,
- *   prefix: 'user-',
- *   case: 'lower',
- *   charset: { numbers: true, lowercase: true },
- *   includeTimestamp: true,
- *   expiresIn: 24 * 60 * 60 * 1000,
- *   version: 'v2'
- * });
- *
- * // Collision-safe generation
+ * // ── Collision-safe async generation ───────────────────────────────────────
  * const safeId = await NehoID.safe({
- *   name: 'user-check',
- *   maxAttempts: 100,
+ *   name: 'user-id',
+ *   maxAttempts: 10,
  *   backoffType: 'exponential',
- *   checkFunction: async (id) => !await userExists(id)
+ *   checkFunction: async (candidate) => !(await db.exists(candidate)),
  * });
  *
- * // Batch generation
- * const ids = NehoID.batch({ count: 10, format: 'uuid' });
+ * // ── Bulk generation ────────────────────────────────────────────────────────
+ * const ids = NehoID.batch({ count: 500, format: 'uuid', ensureUnique: true });
  *
- * // Validation
- * const isValid = NehoID.validate(id);
+ * // ── Validation ─────────────────────────────────────────────────────────────
+ * const ok     = NehoID.validate(id);
+ * const health = NehoID.healthCheck(id);
  *
- * // Monitoring
+ * // ── Monitoring ─────────────────────────────────────────────────────────────
  * NehoID.startMonitoring();
  * const stats = NehoID.getStats();
+ * NehoID.stopMonitoring();
  * ```
  */
 export class NehoID {
+  // Prevent accidental instantiation — this class is purely static.
+  private constructor() {}
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Private helpers
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Replaces pattern placeholders with random characters.
+   *
+   * Recognised placeholders:
+   * - `X` / `A` → random uppercase letter (A–Z)
+   * - `a`       → random lowercase letter (a–z)
+   * - `9`       → random digit (0–9)
+   *
+   * All other characters are kept verbatim.
+   *
+   * @param pattern - Template string (e.g. `'XXX-999'`).
+   * @returns Resolved pattern string (e.g. `'BKT-472'`).
+   */
+  private static generateFromPattern(pattern: string): string {
+    return pattern.replace(
+      PATTERN_REGEX,
+      (match) => PATTERN_REPLACERS[match]?.() ?? match,
+    );
+  }
+
+  /**
+   * Derives an alphabet string from a {@link IdGeneratorOptions.charset} descriptor.
+   *
+   * @param charset - Charset descriptor from caller options.
+   * @returns Combined alphabet string, or `undefined` if the descriptor is empty.
+   */
+  private static buildAlphabetFromCharset(
+    charset: NonNullable<IdGeneratorOptions["charset"]>,
+  ): string | undefined {
+    let pool = "";
+    if (charset.numbers !== false) pool += "0123456789";
+    if (charset.lowercase !== false) pool += "abcdefghijklmnopqrstuvwxyz";
+    if (charset.uppercase !== false) pool += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (charset.special === true) pool += "!@#$%^&*()_+-=[]{}|;:,.<>?";
+
+    if (charset.exclude?.length) {
+      const excluded = new Set(charset.exclude);
+      pool = pool
+        .split("")
+        .filter((c) => !excluded.has(c))
+        .join("");
+    }
+
+    return pool.length > 0 ? pool : undefined;
+  }
+
+  /**
+   * Applies format-specific defaults for preset format shortcuts.
+   *
+   * Mutates `processedOptions` in place and may return early with a fully
+   * formed ID for formats that have their own dedicated generators.
+   *
+   * @param format          - The requested preset format.
+   * @param originalOptions - The raw caller options (read-only).
+   * @param processedOptions - Options object being built for the core generator.
+   * @returns An early-exit ID string for `'uuid'` and `'nanoid'`, or `undefined`.
+   */
+  private static applyFormatPreset(
+    format: NonNullable<IdGeneratorOptions["format"]>,
+    originalOptions: Partial<IdGeneratorOptions>,
+    processedOptions: Partial<IdGeneratorOptions>,
+  ): string | undefined {
+    switch (format) {
+      case "uuid":
+        return NehoID.uuid();
+
+      case "nanoid":
+        return NehoID.nanoid(originalOptions.size);
+
+      case "cuid":
+        processedOptions.size = originalOptions.size ?? 25;
+        processedOptions.prefix = originalOptions.prefix ?? "c";
+        processedOptions.alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+        break;
+
+      case "ksuid":
+        processedOptions.size = originalOptions.size ?? 27;
+        processedOptions.includeTimestamp = true;
+        processedOptions.alphabet =
+          "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        break;
+
+      case "xid":
+        processedOptions.size = originalOptions.size ?? 20;
+        processedOptions.includeTimestamp = true;
+        processedOptions.alphabet = "0123456789abcdefghijklmnopqrstuv";
+        break;
+
+      case "pushid":
+        processedOptions.size = originalOptions.size ?? 20;
+        processedOptions.includeTimestamp = true;
+        processedOptions.alphabet =
+          "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+        break;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Applies a case transformation to an ID string.
+   *
+   * @param id        - The raw ID string.
+   * @param caseMode  - Desired case transformation.
+   * @returns Transformed string.
+   */
+  private static applyCase(
+    id: string,
+    caseMode: NonNullable<IdGeneratorOptions["case"]>,
+  ): string {
+    switch (caseMode) {
+      case "lower":
+        return id.toLowerCase();
+      case "upper":
+        return id.toUpperCase();
+      case "mixed":
+        return id
+          .split("")
+          .map((c) => (Math.random() > 0.5 ? c.toUpperCase() : c.toLowerCase()))
+          .join("");
+      case "camel":
+        return id
+          .replace(/(?:^\w|[A-Z]|\b\w)/g, (w, i) =>
+            i === 0 ? w.toLowerCase() : w.toUpperCase(),
+          )
+          .replace(/\s+/g, "");
+      case "pascal":
+        return id
+          .replace(/(?:^\w|[A-Z]|\b\w)/g, (w) => w.toUpperCase())
+          .replace(/\s+/g, "");
+      case "snake":
+        return id.replace(/\W+/g, "_").toLowerCase();
+      default:
+        return id;
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Core generation
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
    * Generates a unique ID with optional configuration.
    *
-   * This method provides extensive customization options for ID generation,
-   * including preset formats, character sets, case transformations, quality requirements,
-   * and advanced features like expiration, versioning, and sequential numbering.
+   * This is the primary entry point for ID generation. It supports preset format
+   * shortcuts, fine-grained character control, case transformations, expiration
+   * timestamps, versioning, domains, sequential numbering, pattern templates,
+   * metadata embedding, and checksum appending — all composable in a single call.
    *
-   * @param options - Configuration options for ID generation
-   * @returns A newly generated unique ID string
+   * > **Performance note**: For bulk generation prefer {@link NehoID.batch}, which
+   * > avoids per-call monitoring overhead and can run in parallel.
    *
-   * @example
+   * @param options - Generation options. All properties are optional.
+   * @returns A newly generated unique ID string.
+   *
+   * @throws {RangeError} If `options.size` is defined and less than 1.
+   * @throws {TypeError} If `options.sequential.padLength` is negative.
+   *
+   * @example Preset formats
    * ```typescript
-   * // Basic generation
-   * const id = NehoID.generate();
+   * NehoID.generate({ format: 'uuid' });   // "550e8400-e29b-41d4-a716-446655440000"
+   * NehoID.generate({ format: 'nanoid' }); // "V1StGXR8_Z5jdHi6B-myT"
+   * NehoID.generate({ format: 'ksuid' });  // "0ujzPyRiIAffKhBux4PvQdDqMHY"
+   * ```
    *
-   * // Preset formats
-   * const uuid = NehoID.generate({ format: 'uuid' });
-   * const nanoid = NehoID.generate({ format: 'nanoid' });
-   * const cuid = NehoID.generate({ format: 'cuid' });
+   * @example Custom size, segments & separator
+   * ```typescript
+   * NehoID.generate({ size: 4, segments: 3, separator: '.' });
+   * // "aB3x.K9mZ.tR8q"
+   * ```
    *
-   * // Custom configuration
-   * const customId = NehoID.generate({
-   *   size: 16,
-   *   prefix: 'user-',
+   * @example Prefix, case & charset control
+   * ```typescript
+   * NehoID.generate({
+   *   prefix: 'USR',
    *   case: 'lower',
-   *   includeTimestamp: true
+   *   charset: { numbers: true, uppercase: false }
+   * });
+   * // "usr_3f2a9c1b"
+   * ```
+   *
+   * @example Pattern template
+   * ```typescript
+   * NehoID.generate({ pattern: 'AA-9999' }); // "CA-1834"
+   * NehoID.generate({ pattern: 'XXX-XXX' }); // "BKT-ZMP"
+   * ```
+   *
+   * @example Compression & Encoding
+   * ```typescript
+   * NehoID.generate({
+   *   encoding: 'base64',
+   *   compression: 'lz77'
    * });
    * ```
    *
-   * @example
+   * @example Expiring security token
    * ```typescript
-   * // Character set customization
-   * const numericOnly = NehoID.generate({
-   *   charset: { numbers: true, lowercase: false, uppercase: false },
-   *   size: 10
-   * });
-   *
-   * const urlSafe = NehoID.generate({
-   *   quality: { urlSafe: true },
-   *   charset: { exclude: ['+', '/', '='] }
-   * });
-   *
-   * // Case transformations
-   * const upperId = NehoID.generate({ case: 'upper' });
-   * const camelId = NehoID.generate({ case: 'camel' });
-   * const snakeId = NehoID.generate({ case: 'snake' });
-   * ```
-   *
-   * @example
-   * ```typescript
-   * // Advanced features
-   * const tempId = NehoID.generate({
-   *   expiresIn: 24 * 60 * 60 * 1000, // 24 hours
-   *   version: 'v2',
-   *   domain: 'api',
-   *   includeChecksum: true
-   * });
-   *
-   * // Sequential IDs within contexts
-   * const orderId = NehoID.generate({
-   *   sequential: { context: 'orders', start: 1000, padLength: 6 }
-   * });
-   *
-   * // Pattern-based generation
-   * const phoneLike = NehoID.generate({
-   *   pattern: 'XXX-XXX-XXXX' // e.g., ABC-123-4567
-   * });
-   *
-   * const licensePlate = NehoID.generate({
-   *   pattern: 'AA-9999' // e.g., CA-1234
-   * });
-   * ```
-   *
-   * @example
-   * ```typescript
-   * // Quality and security options
-   * const secureId = NehoID.generate({
+   * NehoID.generate({
+   *   size: 32,
    *   randomness: 'crypto',
-   *   quality: {
-   *     minEntropy: 'high',
-   *     avoidPatterns: true
-   *   },
-   *   size: 32
+   *   expiresIn: 15 * 60 * 1000,  // 15 minutes
+   *   domain: 'auth',
+   *   includeChecksum: true,
    * });
+   * ```
    *
-   * // Custom metadata embedding
-   * const taggedId = NehoID.generate({
-   *   metadata: { createdBy: 'api', environment: 'prod' },
-   *   includeTimestamp: true
+   * @example Sequential order IDs
+   * ```typescript
+   * NehoID.generate({
+   *   sequential: { context: 'orders', start: 1000, padLength: 6 },
+   * });
+   * // "orders001000"
+   * ```
+   *
+   * @example Embedded metadata
+   * ```typescript
+   * NehoID.generate({
+   *   metadata: { env: 'prod', source: 'api-v3' },
+   *   includeTimestamp: true,
    * });
    * ```
    */
   static generate(options: Partial<IdGeneratorOptions> = {}): string {
     const startTime = performance.now();
 
-    // Process options and create enhanced options for core generator
-    const processedOptions = { ...options };
+    if (options.size !== undefined && options.size < 1) {
+      throw new RangeError(
+        `options.size must be ≥ 1, received ${options.size}.`,
+      );
+    }
 
-    // Handle preset formats
+    const processedOptions: Partial<IdGeneratorOptions> = { ...options };
+
+    // ── 1. Preset format ────────────────────────────────────────────────────
     if (options.format) {
-      switch (options.format) {
-        case "uuid":
-          return this.uuid();
-        case "nanoid":
-          return this.nanoid(options.size);
-        case "cuid":
-          processedOptions.size = options.size || 25;
-          processedOptions.prefix = options.prefix || "c";
-          processedOptions.alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
-          break;
-        case "ksuid":
-          processedOptions.size = options.size || 27;
-          processedOptions.includeTimestamp = true;
-          processedOptions.alphabet =
-            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-          break;
-        case "xid":
-          processedOptions.size = options.size || 20;
-          processedOptions.includeTimestamp = true;
-          processedOptions.alphabet = "0123456789abcdefghijklmnopqrstuv";
-          break;
-        case "pushid":
-          processedOptions.size = options.size || 20;
-          processedOptions.includeTimestamp = true;
-          processedOptions.alphabet =
-            "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
-          break;
+      const earlyResult = NehoID.applyFormatPreset(
+        options.format,
+        options,
+        processedOptions,
+      );
+      if (earlyResult !== undefined) {
+        Monitor.updateStats(startTime);
+        return earlyResult;
       }
     }
 
-    // Handle character set restrictions
+    // ── 2. Charset → alphabet ───────────────────────────────────────────────
     if (options.charset) {
-      let charset = "";
-      if (options.charset.numbers !== false) charset += "0123456789";
-      if (options.charset.lowercase !== false)
-        charset += "abcdefghijklmnopqrstuvwxyz";
-      if (options.charset.uppercase !== false)
-        charset += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      if (options.charset.special) charset += "!@#$%^&*()_+-=[]{}|;:,.<>?";
-
-      if (options.charset.exclude) {
-        charset = charset
-          .split("")
-          .filter((char) => !options.charset!.exclude!.includes(char))
-          .join("");
-      }
-
-      if (charset) {
-        processedOptions.alphabet = charset;
+      const alphabet = NehoID.buildAlphabetFromCharset(options.charset);
+      if (alphabet) {
+        processedOptions.alphabet = alphabet;
       }
     }
 
-    // Handle pattern templates
-    let result: string;
-    if (options.pattern) {
-      result = this.generateFromPattern(options.pattern, processedOptions);
-    } else {
-      result = Generator.generate(processedOptions);
-    }
+    // ── 3. Core generation ──────────────────────────────────────────────────
+    let result: string = options.pattern
+      ? NehoID.generateFromPattern(options.pattern)
+      : Generator.generate(processedOptions);
 
-    // Handle sequential numbering (this overrides normal generation)
+    // ── 4. Sequential override ──────────────────────────────────────────────
     if (options.sequential) {
-      const seq = options.sequential;
-      const counter = seq.start || 1;
-      const paddedCounter = counter
-        .toString()
-        .padStart(seq.padLength || 0, "0");
-      result = `${seq.context}${paddedCounter}`;
-    }
+      const { context, start = 1, padLength = 0 } = options.sequential;
 
-    // Apply case transformations
-    if (options.case) {
-      switch (options.case) {
-        case "lower":
-          result = result.toLowerCase(); 
-          break;
-        case "upper":
-          result = result.toUpperCase();
-          break;
-        case "camel":
-          result = result
-            .replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) =>
-              index === 0 ? word.toLowerCase() : word.toUpperCase()
-            )
-            .replace(/\s+/g, "");
-          break;
-        case "pascal":
-          result = result
-            .replace(/(?:^\w|[A-Z]|\b\w)/g, (word) => word.toUpperCase())
-            .replace(/\s+/g, "");
-          break;
-        case "snake":
-          result = result.replace(/\W+/g, "_").toLowerCase();
-          break;
-        case "mixed":
-          // Randomly mix case
-          result = result
-            .split("")
-            .map((char) =>
-              Math.random() > 0.5 ? char.toUpperCase() : char.toLowerCase()
-            )
-            .join("");
-          break;
+      if (padLength < 0) {
+        throw new TypeError(
+          `sequential.padLength must be ≥ 0, received ${padLength}.`,
+        );
       }
+
+      result = `${context}${start.toString().padStart(padLength, "0")}`;
     }
 
-    // Add expiration timestamp
-    if (options.expiresIn) {
-      const expiresAt = Date.now() + options.expiresIn;
-      result += `_exp${expiresAt}`;
+    // ── 5. Case transformation ──────────────────────────────────────────────
+    if (options.case) {
+      result = NehoID.applyCase(result, options.case);
     }
 
-    // Add version
-    if (options.version) {
-      const versionStr =
+    // ── 6. Version prefix ───────────────────────────────────────────────────
+    if (options.version !== undefined) {
+      const tag =
         typeof options.version === "number"
           ? `v${options.version}`
           : options.version;
-      result = `${versionStr}_${result}`;
+      result = `${tag}_${result}`;
     }
 
-    // Add domain
+    // ── 7. Domain namespace ─────────────────────────────────────────────────
     if (options.domain) {
       result = `${options.domain}_${result}`;
     }
 
-    // Add checksum
+    // ── 8. Expiration timestamp ─────────────────────────────────────────────
+    if (options.expiresIn !== undefined) {
+      if (options.expiresIn <= 0) {
+        throw new RangeError(
+          `options.expiresIn must be > 0, received ${options.expiresIn}.`,
+        );
+      }
+      result += `_exp${Date.now() + options.expiresIn}`;
+    }
+
+    // ── 9. Checksum ─────────────────────────────────────────────────────────
     if (options.includeChecksum) {
       const checksum = Checksum.generate(result, "djb2", 4);
       result += `_${checksum}`;
     }
 
-    // Embed metadata (simplified - just add as JSON)
+    // ── 10. Metadata ────────────────────────────────────────────────────────
     if (options.metadata) {
       try {
         const metaStr = Buffer.from(JSON.stringify(options.metadata)).toString(
-          "base64"
+          "base64",
         );
         result += `_meta${metaStr}`;
-      } catch (e) {
-        // Ignore metadata if serialization fails
+      } catch {
+        // Silently skip if serialisation fails (e.g. circular references).
       }
     }
 
@@ -314,51 +409,41 @@ export class NehoID {
     return result;
   }
 
-  /**
-   * Generates an ID from a pattern template.
-   * @private
-   */
-  private static generateFromPattern(
-    pattern: string,
-    baseOptions: any
-  ): string {
-    // Replace pattern placeholders
-    // X = any letter, 9 = any number, A = uppercase letter, a = lowercase letter
-    const result = pattern.replace(/X|9|A|a/g, (match) => {
-      switch (match) {
-        case "X":
-          return String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
-        case "9":
-          return String.fromCharCode(48 + Math.floor(Math.random() * 10)); // 0-9
-        case "A":
-          return String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
-        case "a":
-          return String.fromCharCode(97 + Math.floor(Math.random() * 26)); // a-z
-        default:
-          return match;
-      }
-    });
-
-    return result;
-  }
+  // ───────────────────────────────────────────────────────────────────────────
+  // Collision-safe generation
+  // ───────────────────────────────────────────────────────────────────────────
 
   /**
-   * Generates a collision-safe ID by checking against a provided validation function.
+   * Generates a collision-safe ID by validating each candidate against an
+   * external uniqueness predicate before returning it.
    *
-   * @param options - Collision strategy configuration including validation function
-   * @returns A promise that resolves to a collision-free ID string
-   * @throws Will throw an error if maximum attempts are exceeded without finding a unique ID
+   * The method retries up to {@link CollisionStrategy.maxAttempts} times with
+   * the configured back-off strategy. If all attempts fail, it throws an error
+   * and increments the collision counter in {@link Monitor}.
    *
-   * @example
+   * @param options - Collision strategy including the async uniqueness check.
+   * @returns A promise that resolves to a guaranteed-unique ID string.
+   * @throws {Error} When `maxAttempts` is exhausted without finding a unique ID.
+   *
+   * @example Database uniqueness check
    * ```typescript
-   * const safeId = await NehoID.safe({
-   *   name: 'database-check',
-   *   maxAttempts: 50,
+   * const id = await NehoID.safe({
+   *   name: 'order-id-check',
+   *   maxAttempts: 10,
    *   backoffType: 'exponential',
-   *   checkFunction: async (id) => {
-   *     const exists = await db.users.findOne({ id });
-   *     return !exists;
-   *   }
+   *   checkFunction: async (candidate) => {
+   *     return !(await db.orders.exists({ id: candidate }));
+   *   },
+   * });
+   * ```
+   *
+   * @example Redis cache token
+   * ```typescript
+   * const token = await NehoID.safe({
+   *   name: 'session-token',
+   *   maxAttempts: 5,
+   *   backoffType: 'linear',
+   *   checkFunction: async (t) => !(await redis.exists(`sess:${t}`)),
    * });
    * ```
    */
@@ -374,15 +459,18 @@ export class NehoID {
     }
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Shorthand generators
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
-   * Generates a standard UUID (Universally Unique Identifier).
+   * Generates a RFC 4122 v4 UUID.
    *
-   * @returns A RFC 4122 compliant UUID string
+   * @returns A hyphen-separated UUID string (36 characters).
    *
    * @example
    * ```typescript
-   * const uuid = NehoID.uuid();
-   * // Output: '550e8400-e29b-41d4-a716-446655440000'
+   * NehoID.uuid(); // "550e8400-e29b-41d4-a716-446655440000"
    * ```
    */
   static uuid(): string {
@@ -390,15 +478,18 @@ export class NehoID {
   }
 
   /**
-   * Generates a NanoID with configurable length.
+   * Generates a NanoID using URL-safe characters.
    *
-   * @param length - Desired length of the generated ID (default: 21)
-   * @returns A NanoID string using URL-safe characters
+   * NanoIDs are compact, URL-safe, and statistically collision-resistant.
+   * The default length of 21 chars provides ~126 bits of entropy.
+   *
+   * @param length - Character length of the output. @default 21
+   * @returns A NanoID string.
    *
    * @example
    * ```typescript
-   * const nanoId = NehoID.nanoid(); // Default length 21
-   * const shortNanoId = NehoID.nanoid(10);
+   * NehoID.nanoid();    // "V1StGXR8_Z5jdHi6B-myT"  (21 chars)
+   * NehoID.nanoid(10);  // "IRFa-VaY2b"             (10 chars)
    * ```
    */
   static nanoid(length?: number): string {
@@ -406,15 +497,18 @@ export class NehoID {
   }
 
   /**
-   * Generates a short, compact ID.
+   * Generates a short, compact alphanumeric ID.
    *
-   * @param length - Desired length of the generated ID (default: 8)
-   * @returns A short alphanumeric ID string
+   * Useful for human-readable references (order numbers, share codes, etc.)
+   * where brevity matters more than maximum entropy.
+   *
+   * @param length - Character length of the output. @default 8
+   * @returns A short alphanumeric string.
    *
    * @example
    * ```typescript
-   * const shortId = NehoID.short(); // Default length 8
-   * const customShortId = NehoID.short(12);
+   * NehoID.short();     // "aB3xK9mZ"  (8 chars)
+   * NehoID.short(12);   // "aB3xK9mZtR8q"
    * ```
    */
   static short(length?: number): string {
@@ -422,80 +516,101 @@ export class NehoID {
   }
 
   /**
-   * Generates a hexadecimal ID.
+   * Generates a random hexadecimal string.
    *
-   * @param length - Desired length of the generated ID (default: 16)
-   * @returns A hexadecimal ID string
+   * @param length - Character length of the output. @default 16
+   * @returns A lowercase hexadecimal string.
    *
    * @example
    * ```typescript
-   * const hexId = NehoID.hex(); // Default length 16
-   * const longHexId = NehoID.hex(32);
+   * NehoID.hex();     // "3f2a9c1b4e7d8f0a"      (16 chars)
+   * NehoID.hex(32);   // "3f2a9c1b4e7d8f0a1c3e5b7d9f2a4c6e"
    * ```
    */
   static hex(length?: number): string {
     return Generator.hex(length);
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Specialised generators
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
-   * Generates a hierarchical ID with parent-child relationships.
+   * Generates a hierarchical ID encoding a parent-child relationship.
    *
-   * @param options - Configuration options for hierarchical generation
-   * @returns A hierarchical ID string with encoded relationships
+   * Hierarchical IDs preserve the ancestry chain in the identifier itself,
+   * enabling efficient tree traversal without additional database joins.
+   *
+   * @param options - Hierarchical generation options.
+   * @returns A hierarchical ID string with encoded relationship segments.
    *
    * @example
    * ```typescript
-   * const hierarchicalId = NehoID.hierarchical({
-   *   parentId: 'parent-123',
-   *   depth: 2
-   * });
+   * const child = NehoID.hierarchical({ parentId: 'root-abc123', depth: 2 });
+   * // "root-abc123.L2.xK9m"
    * ```
    */
-  static hierarchical(options = {}): string {
+  static hierarchical(options: Record<string, unknown> = {}): string {
     return SpecializedGenerators.hierarchical(options);
   }
 
   /**
-   * Generates a time-ordered ID for chronological sorting.
+   * Generates a time-ordered ID suitable for chronological sorting.
    *
-   * @param options - Configuration options for temporal generation
-   * @returns A temporal ID string with embedded timestamp
+   * Temporal IDs embed a timestamp prefix so that lexicographic order matches
+   * insertion order — ideal for event logs, message queues, and time-series data.
+   *
+   * @param options - Temporal generation options (precision, random suffix, etc.).
+   * @returns A temporal ID string with an embedded timestamp prefix.
    *
    * @example
    * ```typescript
-   * const temporalId = NehoID.temporal({
-   *   precision: 'milliseconds',
-   *   includeRandom: true
-   * });
+   * const id = NehoID.temporal({ precision: 'milliseconds', includeRandom: true });
+   * // "01HX3KBPM4-aB3x"
    * ```
    */
-  static temporal(options = {}): string {
-    return SpecializedGenerators.temporal(options);
+  static temporal(
+    ...options: Parameters<typeof SpecializedGenerators.temporal>
+  ): string {
+    return SpecializedGenerators.temporal(...options);
   }
 
   /**
-   * Generates a temporal ID from a timestamp.
+   * Converts a Unix timestamp (milliseconds) into a temporal ID.
    *
-   * @param timestamp - Timestamp to convert to temporal ID
-   * @returns A temporal ID string
+   * Allows back-dated or future-dated IDs to be generated from arbitrary
+   * epoch values without going through the standard clock.
+   *
+   * @param timestamp - Unix epoch in milliseconds.
+   * @returns A temporal ID string derived from the given timestamp.
+   * @throws {RangeError} If `timestamp` is negative.
    *
    * @example
    * ```typescript
-   * const temporalId = NehoID.fromTemporal(Date.now());
+   * NehoID.fromTemporal(Date.now());           // current-time temporal ID
+   * NehoID.fromTemporal(new Date('2020-01-01').getTime()); // back-dated ID
    * ```
    */
   static fromTemporal(timestamp: number): string {
+    if (timestamp < 0) {
+      throw new RangeError(`timestamp must be ≥ 0, received ${timestamp}.`);
+    }
     return SpecializedGenerators.fromTemporal(timestamp);
   }
+
   /**
-   * Generates a timestamp from a temporal ID.
+   * Extracts the original Unix timestamp (milliseconds) from a temporal ID.
    *
-   * @param temporalId - Temporal ID to convert to timestamp
-   * @returns A timestamp number
+   * @param temporalId - A temporal ID previously generated by {@link NehoID.temporal}
+   *   or {@link NehoID.fromTemporal}.
+   * @returns The Unix epoch in milliseconds encoded in the ID.
+   * @throws {TypeError} If the provided string is not a valid temporal ID.
    *
    * @example
    * ```typescript
-   * const timestamp = NehoID.fromTemporalToTimestamp('temporal-123');
+   * const id = NehoID.temporal();
+   * const ts = NehoID.fromTemporalToTimestamp(id); // e.g. 1710000000000
+   * new Date(ts); // Date object
    * ```
    */
   static fromTemporalToTimestamp(temporalId: string): number {
@@ -503,20 +618,22 @@ export class NehoID {
   }
 
   /**
-   * Generates a sequential ID suitable for database auto-increment replacement.
+   * Generates a sequential ID suitable for replacing database auto-increment columns.
    *
-   * @param options - Configuration options for sequential generation
-   * @returns A sequential ID string
+   * Unlike pure auto-increment, sequential IDs can include a prefix and optional
+   * padding, making them human-readable and namespace-safe across distributed systems.
+   *
+   * @param options - Sequential generation parameters.
+   * @returns A formatted sequential ID string.
+   * @throws {RangeError} If `options.counter` is negative.
    *
    * @example
    * ```typescript
-   * const sequentialId = NehoID.sequential({
-   *   prefix: 'ORD',
-   *   counter: 1001,
-   *   padLength: 6,
-   *   suffix: true
-   * });
-   * // Output: 'ORD001001'
+   * NehoID.sequential({ prefix: 'ORD', counter: 1001, padLength: 6 });
+   * // "ORD001001"
+   *
+   * NehoID.sequential({ prefix: 'INV', counter: 42, padLength: 4 });
+   * // "INV0042"
    * ```
    */
   static sequential(options: {
@@ -525,45 +642,62 @@ export class NehoID {
     padLength?: number;
     suffix?: boolean;
   }): string {
+    if (options.counter < 0) {
+      throw new RangeError(`counter must be ≥ 0, received ${options.counter}.`);
+    }
     return SpecializedGenerators.sequential(options);
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Batch generation
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
-   * Generates multiple IDs in a batch operation.
+   * Generates multiple IDs in a single operation.
    *
-   * @param options - Batch generation configuration
-   * @returns An array of generated ID strings
+   * More efficient than calling {@link NehoID.generate} in a loop because the
+   * generator can amortise initialisation cost and optionally parallelise work.
    *
-   * @example
+   * @param options - Batch configuration (count, format, uniqueness, parallelism).
+   * @returns An array of generated ID strings of length `options.count`.
+   * @throws {RangeError} If `options.count` is less than 1.
+   *
+   * @example Standard batch
    * ```typescript
-   * const ids = NehoID.batch({
-   *   count: 100,
-   *   format: 'uuid',
-   *   parallel: true,
-   *   ensureUnique: true
-   * });
+   * const ids = NehoID.batch({ count: 100, format: 'uuid', ensureUnique: true });
+   * ids.length; // 100
+   * ```
+   *
+   * @example High-throughput parallel batch
+   * ```typescript
+   * const ids = NehoID.batch({ count: 10_000, format: 'nano', parallel: true });
    * ```
    */
   static batch(options: BatchOptions): string[] {
+    if (options.count < 1) {
+      throw new RangeError(
+        `options.count must be ≥ 1, received ${options.count}.`,
+      );
+    }
     return Generator.batch(options);
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Validation
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
-   * Validates an ID against configured rules and formats.
+   * Validates a single ID against the configured rules and format constraints.
    *
-   * @param id - The ID string to validate
-   * @param options - Validation configuration options
-   * @returns True if the ID is valid, false otherwise
+   * @param id      - The ID string to validate.
+   * @param options - Optional validation flags (format check, collision check, repair).
+   * @returns `true` if the ID passes all enabled checks, `false` otherwise.
    *
    * @example
    * ```typescript
-   * const isValid = NehoID.validate('user-abc123');
-   *
-   * // With options
-   * const isValidWithCheck = NehoID.validate('user-abc123', {
-   *   checkFormat: true,
-   *   checkCollisions: true
-   * });
+   * NehoID.validate('usr_aB3xK9mZ');                         // true
+   * NehoID.validate('usr_aB3xK9mZ', { checkFormat: true });  // true
+   * NehoID.validate('!!!invalid');                            // false
    * ```
    */
   static validate(id: string, options?: ValidationOptions): boolean {
@@ -571,47 +705,79 @@ export class NehoID {
   }
 
   /**
-   * Validates multiple IDs in a batch operation.
+   * Validates multiple IDs in a single pass and provides a detailed report.
    *
-   * @param ids - Array of ID strings to validate
-   * @param options - Validation configuration options
-   * @returns Array of validation results corresponding to input IDs
+   * Results include categorized lists of valid, invalid, and duplicate IDs.
+   *
+   * @param ids     - Array of ID strings to validate.
+   * @param options - Optional validation flags applied uniformly to all IDs.
+   * @returns An object containing arrays of `valid`, `invalid`, and `duplicates` IDs.
    *
    * @example
    * ```typescript
-   * const results = NehoID.validateBatch(['id1', 'id2', 'id3']);
-   * // Output: [true, false, true]
+   * const report = NehoID.validateBatch(['id1', 'id2', '!!!', 'id1']);
+   * // {
+   * //   valid: ['id1', 'id2'],
+   * //   invalid: ['!!!'],
+   * //   duplicates: ['id1']
+   * // }
    * ```
    */
-  static validateBatch(ids: string[], options?: ValidationOptions) {
+  static validateBatch(
+    ids: string[],
+    options?: ValidationOptions,
+  ): {
+    valid: string[];
+    invalid: string[];
+    duplicates: string[];
+  } {
     return Validators.validateBatch(ids, options);
   }
 
   /**
-   * Performs a comprehensive health check on an ID.
+   * Performs a comprehensive quality analysis of an ID.
    *
-   * @param id - The ID string to analyze
-   * @returns A health score object with entropy, predictability, and recommendations
+   * Examines entropy, character distribution, predictability, and structural
+   * patterns, then returns an actionable {@link HealthScore} report.
+   *
+   * @param id - The ID string to analyse.
+   * @returns A {@link HealthScore} object with a normalised score and recommendations.
    *
    * @example
    * ```typescript
-   * const health = NehoID.healthCheck('user-abc123');
-   * console.log(health.score); // 0.85
-   * console.log(health.entropy); // 'high'
+   * const health = NehoID.healthCheck('usr_aB3xK9mZ');
+   * // {
+   * //   score: 0.91,
+   * //   entropy: 'high',
+   * //   predictability: 'low',
+   * //   recommendations: [],
+   * // }
+   *
+   * if (health.score < 0.7) {
+   *   console.warn('Low quality ID:', health.recommendations);
+   * }
    * ```
    */
   static healthCheck(id: string): HealthScore {
     return Validators.healthCheck(id);
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Monitoring
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
-   * Starts monitoring ID generation statistics and performance.
+   * Starts collecting generation performance metrics.
+   *
+   * Must be called before {@link NehoID.getStats}. Has no effect if monitoring
+   * is already active.
    *
    * @example
    * ```typescript
    * NehoID.startMonitoring();
-   * // ... perform operations ...
+   * for (let i = 0; i < 10_000; i++) NehoID.generate();
    * const stats = NehoID.getStats();
+   * console.log(stats.averageGenerationTime); // e.g. "0.041 ms"
    * ```
    */
   static startMonitoring(): void {
@@ -619,11 +785,15 @@ export class NehoID {
   }
 
   /**
-   * Stops monitoring ID generation statistics.
+   * Stops metric collection and freezes the current statistics snapshot.
+   *
+   * Subsequent calls to {@link NehoID.getStats} return the frozen values until
+   * monitoring is restarted.
    *
    * @example
    * ```typescript
    * NehoID.stopMonitoring();
+   * const finalStats = NehoID.getStats();
    * ```
    */
   static stopMonitoring(): void {
@@ -631,32 +801,42 @@ export class NehoID {
   }
 
   /**
-   * Retrieves current monitoring statistics.
+   * Returns the current (or last frozen) generation statistics.
    *
-   * @returns A stats object containing generation metrics
+   * @returns A {@link Stats} snapshot.
    *
    * @example
    * ```typescript
-   * const stats = NehoID.getStats();
-   * console.log(`Generated: ${stats.generated}, Collisions: ${stats.collisions}`);
+   * const { generated, collisions, averageGenerationTime } = NehoID.getStats();
+   * console.log(`${generated} IDs generated, ${collisions} collisions.`);
    * ```
    */
   static getStats(): Stats {
     return Monitor.getStats();
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Advanced generation
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
-   * Generates a contextual ID incorporating environment and user data.
+   * Generates an ID that embeds a fingerprint of the current runtime environment.
    *
-   * @param options - Contextual generation options
-   * @returns A contextual ID string
+   * Useful for analytics, anomaly detection, and fraud prevention — each enabled
+   * flag adds a hashed context segment to the ID.
+   *
+   * > ⚠️ **Privacy**: `includeDevice` and `includeLocation` may collect PII.
+   * > Ensure user consent and legal compliance before enabling these flags.
+   *
+   * @param options - Context flags controlling which environment data is captured.
+   * @returns A contextual ID string containing hashed environment segments.
    *
    * @example
    * ```typescript
-   * const contextualId = NehoID.contextual({
+   * const id = NehoID.contextual({
    *   includeDevice: true,
-   *   includeLocation: true,
-   *   userBehavior: 'login'
+   *   includeTimezone: true,
+   *   userBehavior: 'checkout',
    * });
    * ```
    */
@@ -665,39 +845,62 @@ export class NehoID {
   }
 
   /**
-   * Generates a semantic ID with meaningful segments.
+   * Generates a human-readable semantic ID with meaningful business segments.
    *
-   * @param options - Semantic generation options
-   * @returns A semantic ID string
+   * Semantic IDs self-document their origin (region, department, year) while
+   * remaining unique via an appended random suffix.
+   *
+   * @param options - Semantic segments to embed in the ID.
+   * @returns A structured semantic ID string.
    *
    * @example
    * ```typescript
-   * const semanticId = NehoID.semantic({
+   * NehoID.semantic({
    *   prefix: 'ORD',
-   *   region: 'US-WEST',
+   *   region: 'EU-WEST',
    *   department: 'SALES',
-   *   year: 2024
+   *   year: 2025,
+   *   customSegments: { channel: 'web' },
    * });
+   * // "ORD-EU-WEST-SALES-2025-web-x7k2"
    * ```
    */
   static semantic(options: SemanticOptions): string {
     return Advanced.semantic(options);
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Migration & compatibility
+  // ───────────────────────────────────────────────────────────────────────────
+
   /**
-   * Migrates IDs from one format to another.
+   * Bulk-migrates IDs from one format to another while preserving referential integrity.
    *
-   * @param options - Migration configuration
-   * @returns A promise that resolves to an array of migrated ID strings
+   * Processes IDs in configurable batches to limit memory pressure. The resulting
+   * array maintains the same order as the input when `preserveOrder` is `true`.
    *
-   * @example
+   * @param options - Migration configuration (source/target format, batch size, IDs).
+   * @returns A promise that resolves to an array of migrated ID strings.
+   * @throws {Error} If the source format is unrecognised or migration fails.
+   *
+   * @example Migrate explicit list of UUIDs
    * ```typescript
-   * const migratedIds = await NehoID.migrate({
+   * const newIds = await NehoID.migrate({
    *   from: 'uuid',
    *   to: 'nehoid',
    *   preserveOrder: true,
+   *   batchSize: 500,
+   *   ids: legacyUuids,
+   * });
+   * ```
+   *
+   * @example Migrate N records from a configured source store
+   * ```typescript
+   * const newIds = await NehoID.migrate({
+   *   from: 'legacy-numeric',
+   *   to: 'ksuid',
+   *   count: 10_000,
    *   batchSize: 100,
-   *   ids: ['uuid1', 'uuid2']
    * });
    * ```
    */
@@ -706,21 +909,32 @@ export class NehoID {
   }
 
   /**
-   * Generates an ID compatible with specified platforms.
+   * Generates an ID that satisfies the constraints of all specified target platforms.
    *
-   * @param options - Compatibility configuration
-   * @returns A cross-platform compatible ID string
+   * The generator applies the most restrictive character set and length limit
+   * across all listed platforms, ensuring the output is usable without transformation
+   * on every target.
+   *
+   * @param options - Target platforms, required format, and exact length.
+   * @returns A cross-platform compatible ID string.
+   * @throws {RangeError} If `options.length` is less than 1.
    *
    * @example
    * ```typescript
-   * const compatibleId = NehoID.compatible({
-   *   platform: ['javascript', 'python'],
+   * NehoID.compatible({
+   *   platform: ['javascript', 'python', 'go'],
    *   format: 'alphanumeric',
-   *   length: 16
+   *   length: 16,
    * });
+   * // "aB3xK9mZtR8qV2nP"
    * ```
    */
   static compatible(options: CompatibilityOptions): string {
+    if (options.length < 1) {
+      throw new RangeError(
+        `options.length must be ≥ 1, received ${options.length}.`,
+      );
+    }
     return Advanced.compatible(options);
   }
 }

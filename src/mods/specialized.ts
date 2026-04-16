@@ -98,10 +98,9 @@ export class SpecializedGenerators {
    * });
    * ```
    */
-  static temporal(options = {}): string {
-    return Specialized.temporal(options);
+  static temporal(...options: Parameters<typeof Specialized.temporal>): string {
+    return Specialized.temporal(...options);
   }
-
 
   /**
    * Generates a sequential ID suitable for database primary keys.
