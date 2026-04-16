@@ -61,7 +61,7 @@ export class ChecksumError extends Error {
  * Encodes a string to a UTF-8 Uint8Array.
  * Falls back gracefully when TextEncoder is unavailable (very old runtimes).
  */
-function toBytes(input: ChecksumInput): Uint8Array {
+export function toBytes(input: ChecksumInput): Uint8Array {
   if (input instanceof Uint8Array) return input;
 
   if (typeof TextEncoder !== "undefined") {

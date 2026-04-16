@@ -565,7 +565,7 @@ export class NehoID {
    *
    * @example
    * ```typescript
-   * const id = NehoID.temporal({ precision: 'milliseconds', includeRandom: true });
+   * const id = NehoID.temporal({ precision: 'milliseconds', suffix: true });
    * // "01HX3KBPM4-aB3x"
    * ```
    */
@@ -591,11 +591,14 @@ export class NehoID {
    * NehoID.fromTemporal(new Date('2020-01-01').getTime()); // back-dated ID
    * ```
    */
-  static fromTemporal(timestamp: number): string {
+  static fromTemporal(
+    timestamp: number,
+    options?: Parameters<typeof SpecializedGenerators.fromTemporal>[1],
+  ): string {
     if (timestamp < 0) {
       throw new RangeError(`timestamp must be ≥ 0, received ${timestamp}.`);
     }
-    return SpecializedGenerators.fromTemporal(timestamp);
+    return SpecializedGenerators.fromTemporal(timestamp, options);
   }
 
   /**
@@ -613,8 +616,13 @@ export class NehoID {
    * new Date(ts); // Date object
    * ```
    */
-  static fromTemporalToTimestamp(temporalId: string): number {
-    return SpecializedGenerators.fromTemporalToTimestamp(temporalId);
+  static fromTemporalToTimestamp(
+    temporalId: string,
+    options?: Parameters<
+      typeof SpecializedGenerators.fromTemporalToTimestamp
+    >[1],
+  ): number {
+    return SpecializedGenerators.fromTemporalToTimestamp(temporalId, options);
   }
 
   /**

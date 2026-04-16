@@ -1,11 +1,11 @@
 {
   "name": "nehoid",
-  "version": "2.1.4",
+  "version": "2.2.0",
   "description": "Advanced unique ID generation utility with multi-layer encoding, collision detection, and context-aware features",
   "author": {
     "name": "Nehonix",
-    "url": "https://nehonix.space",
-    "whatsapp": "https://s.nehonix.space/QBo0KpCl"
+    "url": "https://nehonix.com",
+    "whatsapp": "https://s.nehonix.com/QBo0KpCl"
   },
   "license": "MIT",
   "type": "module",
@@ -26,7 +26,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": "\u003e=22.12.0"
+    "node": ">=22.12.0"
   },
   "repository": {
     "type": "git",

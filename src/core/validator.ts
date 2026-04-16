@@ -1,13 +1,14 @@
-import { ValidationOptions, HealthScore } from '../types/index.js';
+import { ValidationOptions, HealthScore } from "../types/index.js";
 
 export class Validator {
-  private static readonly UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  private static readonly UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   private static readonly NANO_REGEX = /^[A-Za-z0-9_-]+$/;
 
   static validate(id: string, options: ValidationOptions = {}): boolean {
     const { checkFormat = true } = options;
 
-    if (!id || typeof id !== 'string') {
+    if (!id || typeof id !== "string") {
       return false;
     }
 
@@ -17,8 +18,8 @@ export class Validator {
         return false;
       }
 
-      // Check for invalid characters
-      if (/[^A-Za-z0-9_-]/.test(id)) {
+      // Check for invalid characters (including Base64 characters for metadata/encoding)
+      if (/[^A-Za-z0-9_+\/=-]/.test(id)) {
         return false;
       }
     }
@@ -26,7 +27,10 @@ export class Validator {
     return true;
   }
 
-  static validateBatch(ids: string[], options: ValidationOptions = {}): {
+  static validateBatch(
+    ids: string[],
+    options: ValidationOptions = {},
+  ): {
     valid: string[];
     invalid: string[];
     duplicates: string[];
@@ -61,12 +65,17 @@ export class Validator {
     const score = this.calculateHealthScore(id);
     const entropy = this.calculateEntropy(id);
     const predictability = this.assessPredictability(id);
-    const recommendations = this.generateRecommendations(score, entropy, id.length);
+    const recommendations = this.generateRecommendations(
+      score,
+      entropy,
+      id.length,
+    );
 
     return {
       score,
-      entropy: entropy > 0.75 ? 'high' : entropy > 0.5 ? 'medium' : 'low',
-      predictability: predictability < 0.3 ? 'low' : predictability < 0.6 ? 'medium' : 'high',
+      entropy: entropy > 0.75 ? "high" : entropy > 0.5 ? "medium" : "low",
+      predictability:
+        predictability < 0.3 ? "low" : predictability < 0.6 ? "medium" : "high",
       recommendations,
     };
   }
@@ -127,16 +136,20 @@ export class Validator {
     return Math.min(1, predictability);
   }
 
-  private static generateRecommendations(score: number, entropy: number, length: number): string[] {
+  private static generateRecommendations(
+    score: number,
+    entropy: number,
+    length: number,
+  ): string[] {
     const recommendations: string[] = [];
 
     if (score < 0.8) {
-      if (length < 12) recommendations.push('increase_length');
-      if (entropy < 0.6) recommendations.push('increase_complexity');
+      if (length < 12) recommendations.push("increase_length");
+      if (entropy < 0.6) recommendations.push("increase_complexity");
     }
 
-    if (length > 50) recommendations.push('consider_shorter');
-    if (entropy < 0.4) recommendations.push('add_more_variety');
+    if (length > 50) recommendations.push("consider_shorter");
+    if (entropy < 0.4) recommendations.push("add_more_variety");
 
     return recommendations;
   }

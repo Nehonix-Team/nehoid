@@ -41,7 +41,6 @@ import {
   CompatibilityOptions,
 } from "./types/index.js";
 import { NehoID } from "./mods/nehoid.js";
-import { Checksum } from "./mods/checksum.js";
 
 // Re-export types
 /**
@@ -119,7 +118,7 @@ export { NehoID as ID };
  * Checksum utilities for ID validation and integrity checking.
  * Provides multiple algorithms including CRC32, Adler32, FNV-1a, and MurmurHash3.
  */
-export { Checksum };
+export { Checksum, toBytes } from "./mods/checksum.js";
 
 /**
  * Encoder class for various encoding schemes and transformations.

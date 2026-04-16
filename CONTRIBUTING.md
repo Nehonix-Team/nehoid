@@ -4,7 +4,7 @@ Thank you for your interest in contributing to NehoID! This document provides gu
 
 ## Code of Conduct
 
-By participating in this project, you agree to abide by the [Nehonix Code of Conduct](https://nehonix.space/code-of-conduct). Please report any unacceptable behavior to support@nehonix.space.
+By participating in this project, you agree to abide by the [Nehonix Code of Conduct](https://nehonix.com/code-of-conduct). Please report any unacceptable behavior to support@nehonix.com.
 
 ## How Can I Contribute?
 
@@ -112,6 +112,6 @@ By contributing to NehoID, you agree that your contributions will be licensed un
 
 ## Questions?
 
-Feel free to contact the Nehonix team at team@nehonix.space if you have any questions about contributing.
+Feel free to contact the Nehonix team at team@nehonix.com if you have any questions about contributing.
 
 Thank you for helping improve NehoID!

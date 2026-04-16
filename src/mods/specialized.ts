@@ -51,8 +51,14 @@ export class SpecializedGenerators {
    * });
    * ```
    */
-  static hierarchical(options = {}): string {
-    return Specialized.hierarchical(options);
+  static hierarchical(options: Record<string, any> = {}): string {
+    // Map parentId -> parent and depth -> level for consistency with JSDocs
+    const mappedOptions = {
+      parent: options.parent || options.parentId,
+      level: options.level || options.depth,
+      separator: options.separator,
+    };
+    return Specialized.hierarchical(mappedOptions);
   }
 
   /**
@@ -178,8 +184,11 @@ export class SpecializedGenerators {
    * });
    * ```
    */
-  static fromTemporal(timestamp: number): string {
-    return Specialized.fromTemporal(timestamp, {});
+  static fromTemporal(
+    timestamp: number,
+    options: Parameters<typeof Specialized.fromTemporal>[1] = {},
+  ): string {
+    return Specialized.fromTemporal(timestamp, options);
   }
 
   /**
@@ -218,8 +227,11 @@ export class SpecializedGenerators {
    * }
    * ```
    */
-  static fromTemporalToTimestamp(temporalId: string): number {
-    return Specialized.fromTemporalToTimestamp(temporalId, {});
+  static fromTemporalToTimestamp(
+    temporalId: string,
+    options: Parameters<typeof Specialized.fromTemporalToTimestamp>[1] = {},
+  ): number {
+    return Specialized.fromTemporalToTimestamp(temporalId, options);
   }
 
   static sequential(options: {
