@@ -1,7 +1,7 @@
 {
   "name": "nehoid",
-  "version": "2.2.0",
-  "description": "Advanced unique ID generation utility with multi-layer encoding, collision detection, and context-aware features",
+  "version": "2.2.1",
+  "description": "NehoID is a high-performance TypeScript library designed for generating, validating, and managing unique identifiers in enterprise-grade applications.",
   "author": {
     "name": "Nehonix",
     "url": "https://nehonix.com",
