@@ -10,7 +10,7 @@ export class Generator {
   private static readonly DEFAULT_OPTIONS: Partial<IdGeneratorOptions> = {
     size: 8,
     segments: 4,
-    separator: "-",
+    separator: "-", 
     encoding: "rawHex",
     prefix: "",
     includeTimestamp: false,

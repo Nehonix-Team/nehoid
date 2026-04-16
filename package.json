@@ -1,8 +1,14 @@
 {
   "name": "nehoid",
-  "version": "2.1.3",
-  "type": "module",
+  "version": "2.1.4",
   "description": "Advanced unique ID generation utility with multi-layer encoding, collision detection, and context-aware features",
+  "author": {
+    "name": "Nehonix",
+    "url": "https://nehonix.space",
+    "whatsapp": "https://s.nehonix.space/QBo0KpCl"
+  },
+  "license": "MIT",
+  "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.esm.js",
   "types": "./dist/index.d.ts",
@@ -19,19 +25,12 @@
     "README.md",
     "LICENSE"
   ],
-  "scripts": {
-    "build": "rollup -c",
-    "dev": "rollup -c -w",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
-    "type-check": "tsc --noEmit",
-    "prepublishOnly": "npm run build",
-    "clean": "rm dist",
-    "docs": "typedoc src/index.ts",
-    "benchmark": "node benchmarks/performance.js"
+  "engines": {
+    "node": "\u003e=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nehonix/nehoid.git"
   },
   "keywords": [
     "id",
@@ -147,22 +146,27 @@
     "developer-tools",
     "dev-tools"
   ],
-  "author": {
-    "name": "Nehonix",
-    "whatsapp": "https://s.nehonix.space/QBo0KpCl",
-    "url": "https://nehonix.space"
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nehonix/nehoid.git"
+  "scripts": {
+    "benchmark": "node benchmarks/performance.js",
+    "build": "rollup -c",
+    "clean": "rm dist",
+    "dev": "rollup -c -w",
+    "docs": "typedoc src/index.ts",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "prepublishOnly": "npm run build",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "type-check": "tsc --noEmit"
   },
-  "bugs": {
-    "url": "https://github.com/nehonix/nehoid/issues"
-  },
-  "homepage": "https://github.com/nehonix/nehoid#readme",
-  "engines": {
-    "node": ">=22.12.0"
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "strulink": "^1.1.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.0",
@@ -181,71 +185,5 @@
     "ts-jest": "^29.1.0",
     "typedoc": "^0.24.0",
     "typescript": "^5.8.3"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/nehonix"
-  },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not dead"
-  ],
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "transform": {
-      "^.+\\.tsx?$": [
-        "ts-jest",
-        {
-          "tsconfig": "tsconfig.json"
-        }
-      ]
-    },
-    "moduleFileExtensions": [
-      "ts",
-      "tsx",
-      "js",
-      "jsx",
-      "json",
-      "node"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.ts",
-      "!src/**/*.d.ts"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.test.ts"
-    ],
-    "globals": {
-      "ts-jest": {
-        "tsconfig": "tsconfig.json"
-      }
-    }
-  },
-  "eslintConfig": {
-    "extends": [
-      "@typescript-eslint/recommended"
-    ],
-    "parser": "@typescript-eslint/parser",
-    "plugins": [
-      "@typescript-eslint"
-    ],
-    "rules": {
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": "error"
-    }
-  },
-  "peerDependencies": {
-    "nehonix-uri-processor": "^2.3.17"
-  },
-  "peerDependenciesMeta": {
-    "nehonix-uri-processor": {
-      "optional": true
-    }
   }
 }

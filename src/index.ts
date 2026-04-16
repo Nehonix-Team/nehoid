@@ -28,12 +28,6 @@
  * ```
  */
 
-import { EncodingPipeline } from "./core/pipeline";
-import {
-  mongooseField,
-  sequelizeField,
-  typeormDecorator,
-} from "./integrations/database";
 import {
   IdGeneratorOptions,
   CollisionStrategy,
@@ -126,46 +120,6 @@ export { NehoID as ID };
  * Provides multiple algorithms including CRC32, Adler32, FNV-1a, and MurmurHash3.
  */
 export { Checksum };
-
-
-/**
- * Database integration helpers for popular ORMs.
- * Provides field definitions and decorators for seamless database integration.
- *
- * @example
- * ```typescript
- * // Mongoose integration
- * const userSchema = new mongoose.Schema({
- *   _id: database.mongoose('User'),
- *   name: String
- * });
- *
- * // Sequelize integration
- * class User extends Model {
- *   @database.sequelize('User')
- *   id: string;
- * }
- *
- * // TypeORM integration
- * @Entity()
- * class User {
- *   @database.typeorm('User')
- *   id: string;
- * }
- * ```
- */
-export const database = {
-  mongoose: mongooseField,
-  sequelize: sequelizeField,
-  typeorm: typeormDecorator,
-};
-
-// Export EncodingPipeline class
-/**
- * Advanced encoding pipeline for processing and transforming IDs.
- * Supports compression, reversible encoding, and custom transformation chains.
- */
-export { EncodingPipeline };
 
 /**
  * Encoder class for various encoding schemes and transformations.

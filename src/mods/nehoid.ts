@@ -10,13 +10,12 @@ import {
   MigrationOptions,
   CompatibilityOptions,
 } from "../types/index";
-import { NehoIDV2 } from "../exports/v2.export";
-import { CoreGenerators } from './generators';
 import { SpecializedGenerators } from './specialized';
 import { Validators } from './validation';
 import { Monitor } from './monitoring';
 import { Advanced } from './advanced';
 import { Checksum } from './checksum';
+import { Generator } from "../core/generator";
 
 /**
  * The main NehoID class providing comprehensive ID generation, validation, and management capabilities.
@@ -66,7 +65,7 @@ import { Checksum } from './checksum';
  * const stats = NehoID.getStats();
  * ```
  */
-export class NehoID extends NehoIDV2 {
+export class NehoID {
   /**
    * Generates a unique ID with optional configuration.
    *
@@ -224,7 +223,7 @@ export class NehoID extends NehoIDV2 {
     if (options.pattern) {
       result = this.generateFromPattern(options.pattern, processedOptions);
     } else {
-      result = CoreGenerators.generate(processedOptions);
+      result = Generator.generate(processedOptions);
     }
 
     // Handle sequential numbering (this overrides normal generation)
@@ -241,7 +240,7 @@ export class NehoID extends NehoIDV2 {
     if (options.case) {
       switch (options.case) {
         case "lower":
-          result = result.toLowerCase();
+          result = result.toLowerCase(); 
           break;
         case "upper":
           result = result.toUpperCase();
@@ -366,7 +365,7 @@ export class NehoID extends NehoIDV2 {
   static async safe(options: CollisionStrategy): Promise<string> {
     const startTime = performance.now();
     try {
-      const id = await CoreGenerators.safe(options);
+      const id = await Generator.safe(options);
       Monitor.updateStats(startTime);
       return id;
     } catch (error) {
@@ -387,7 +386,7 @@ export class NehoID extends NehoIDV2 {
    * ```
    */
   static uuid(): string {
-    return CoreGenerators.uuid();
+    return Generator.uuid();
   }
 
   /**
@@ -403,7 +402,7 @@ export class NehoID extends NehoIDV2 {
    * ```
    */
   static nanoid(length?: number): string {
-    return CoreGenerators.nanoid(length);
+    return Generator.nano(length);
   }
 
   /**
@@ -419,7 +418,7 @@ export class NehoID extends NehoIDV2 {
    * ```
    */
   static short(length?: number): string {
-    return CoreGenerators.short(length);
+    return Generator.short(length);
   }
 
   /**
@@ -435,7 +434,7 @@ export class NehoID extends NehoIDV2 {
    * ```
    */
   static hex(length?: number): string {
-    return CoreGenerators.hex(length);
+    return Generator.hex(length);
   }
 
   /**
@@ -546,7 +545,7 @@ export class NehoID extends NehoIDV2 {
    * ```
    */
   static batch(options: BatchOptions): string[] {
-    return CoreGenerators.batch(options);
+    return Generator.batch(options);
   }
 
   /**

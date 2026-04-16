@@ -4,7 +4,7 @@
  */
 
 import { Generator } from './generator';
-
+ 
 export class Specialized {
   /**
    * Generates a hierarchical ID with parent-child relationships
