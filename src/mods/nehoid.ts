@@ -16,6 +16,7 @@ import { Monitor } from "./monitoring.js";
 import { Advanced } from "./advanced.js";
 import { Checksum } from "./checksum.js";
 import { Generator } from "../core/generator.js";
+import { __processor__ } from "../utils/processor-wrapper.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal constants
@@ -155,6 +156,10 @@ export class NehoID {
       case "nanoid":
         return NehoID.nanoid(originalOptions.size);
 
+      case "hex":
+      case "hash":
+        return NehoID.hex(originalOptions.size);
+
       case "cuid":
         processedOptions.size = originalOptions.size ?? 25;
         processedOptions.prefix = originalOptions.prefix ?? "c";
@@ -248,7 +253,14 @@ export class NehoID {
    * ```typescript
    * NehoID.generate({ format: 'uuid' });   // "550e8400-e29b-41d4-a716-446655440000"
    * NehoID.generate({ format: 'nanoid' }); // "V1StGXR8_Z5jdHi6B-myT"
+   * NehoID.generate({ format: 'hex' });    // "3f2a9c1b4e7d8f0a1c3e5b7d9f2a4c6e" (crypto randomBytes)
    * NehoID.generate({ format: 'ksuid' });  // "0ujzPyRiIAffKhBux4PvQdDqMHY"
+   * ```
+   *
+   * @example Output conversion & transformation
+   * ```typescript
+   * NehoID.generate({ convert: 'hex' });
+   * NehoID.generate({ transform: (id) => `ID_${id}` });
    * ```
    *
    * @example Custom size, segments & separator
@@ -327,8 +339,25 @@ export class NehoID {
         processedOptions,
       );
       if (earlyResult !== undefined) {
+        let finalResult = earlyResult;
+        if (options.prefix) {
+          finalResult = `${options.prefix}${options.separator ?? "-"}${finalResult}`;
+        }
+        if (options.case) {
+          finalResult = NehoID.applyCase(finalResult, options.case);
+        }
+        if (options.convert) {
+          if (typeof options.convert === "function") {
+            finalResult = options.convert(finalResult);
+          } else if (typeof options.convert === "string") {
+            finalResult = __processor__.encode(finalResult, options.convert as any);
+          }
+        }
+        if (options.transform && typeof options.transform === "function") {
+          finalResult = options.transform(finalResult);
+        }
         Monitor.updateStats(startTime);
-        return earlyResult;
+        return finalResult;
       }
     }
 
@@ -403,6 +432,19 @@ export class NehoID {
       } catch {
         // Silently skip if serialisation fails (e.g. circular references).
       }
+    }
+
+    // ── 11. Output conversion & transformation ─────────────────────────────
+    if (options.convert) {
+      if (typeof options.convert === "function") {
+        result = options.convert(result);
+      } else if (typeof options.convert === "string") {
+        result = __processor__.encode(result, options.convert as any);
+      }
+    }
+
+    if (options.transform && typeof options.transform === "function") {
+      result = options.transform(result);
     }
 
     Monitor.updateStats(startTime);

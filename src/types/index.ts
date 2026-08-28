@@ -143,22 +143,27 @@ export interface IdGeneratorOptions {
    * Shortcut to apply a well-known ID format.
    * When set, format-specific defaults (size, alphabet, timestamp) are applied automatically.
    *
-   * | Value      | Length | Notes                                   |
-   * |------------|--------|-----------------------------------------|
-   * | `'uuid'`   | 36     | RFC 4122, hyphen-separated              |
-   * | `'nanoid'` | 21     | URL-safe, uses `size` override if set   |
-   * | `'cuid'`   | 25     | Collision-resistant, prefixed with `c`  |
-   * | `'ksuid'`  | 27     | K-Sortable, timestamp-prefixed          |
-   * | `'xid'`    | 20     | Mongo-compatible, base32-encoded        |
-   * | `'pushid'` | 20     | Firebase-style, time-ordered            |
+   * | Value      | Length | Notes                                         |
+   * |------------|--------|-----------------------------------------------|
+   * | `'uuid'`   | 36     | RFC 4122, hyphen-separated                    |
+   * | `'nanoid'` | 21     | URL-safe, uses `size` override if set         |
+   * | `'hex'`    | 32     | Cryptographic hex hash using crypto randomBytes|
+   * | `'hash'`   | 32     | Cryptographic hex hash alias for `'hex'`      |
+   * | `'cuid'`   | 25     | Collision-resistant, prefixed with `c`        |
+   * | `'ksuid'`  | 27     | K-Sortable, timestamp-prefixed                |
+   * | `'xid'`    | 20     | Mongo-compatible, base32-encoded              |
+   * | `'pushid'` | 20     | Firebase-style, time-ordered                  |
    *
    * @example
    * ```typescript
    * NehoID.generate({ format: 'ksuid' });
    * // Output: "0ujzPyRiIAffKhBux4PvQdDqMHY"
+   *
+   * NehoID.generate({ format: 'hex', size: 16 });
+   * // Output: "a3f8c2b19e4d7a05"
    * ```
    */
-  format?: "uuid" | "nanoid" | "cuid" | "ksuid" | "xid" | "pushid";
+  format?: "uuid" | "nanoid" | "hex" | "hash" | "cuid" | "ksuid" | "xid" | "pushid";
 
   // ── Timestamp ───────────────────────────────────────────────────────────────
 
@@ -360,6 +365,30 @@ export interface IdGeneratorOptions {
    * ```
    */
   metadata?: Record<string, unknown>;
+
+  // ── Output Conversion & Transformation ──────────────────────────────────────
+
+  /**
+   * Optional conversion applied to the generated ID output (e.g. `'hex'`, `'base64'`, `'urlSafeBase64'`, `'rawHex'`)
+   * or a custom conversion callback `(id: string) => string`.
+   *
+   * @example
+   * ```typescript
+   * NehoID.generate({ convert: 'hex' });
+   * NehoID.generate({ convert: (id) => `ID_${id}` });
+   * ```
+   */
+  convert?: "hex" | "base64" | "urlSafeBase64" | "rawHex" | ((id: string) => string);
+
+  /**
+   * Optional transformation callback applied to the final generated ID string.
+   *
+   * @example
+   * ```typescript
+   * NehoID.generate({ transform: (id) => id.toUpperCase() });
+   * ```
+   */
+  transform?: (id: string) => string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -564,10 +593,12 @@ export interface BatchOptions {
    * | `'nano'`     | NanoID-compatible, 21 chars        |
    * | `'short'`    | Short alphanumeric, 8 chars        |
    * | `'uuid'`     | RFC 4122 UUID, 36 chars            |
+   * | `'hex'`      | Cryptographic hex hash, 32 chars   |
+   * | `'hash'`     | Alias for `'hex'`                  |
    *
    * @default 'standard'
    */
-  format?: "standard" | "nano" | "short" | "uuid";
+  format?: "standard" | "nano" | "short" | "uuid" | "hex" | "hash";
 
   /**
    * Generate IDs in parallel using worker threads when available.

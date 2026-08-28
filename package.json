@@ -1,6 +1,6 @@
 {
   "name": "nehoid",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "NehoID is a high-performance TypeScript library designed for generating, validating, and managing unique identifiers in enterprise-grade applications.",
   "author": {
     "name": "Nehonix",

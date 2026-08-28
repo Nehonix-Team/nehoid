@@ -1,4 +1,4 @@
-import typescript from "@rollup/plugin-typescript";
+import ts from "typescript";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import dts from "rollup-plugin-dts";
@@ -7,6 +7,34 @@ import { readFileSync } from "fs";
 const pkg = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf8")
 );
+
+function typescriptPlugin() {
+  const compilerOptions = {
+    target: ts.ScriptTarget.ES2020,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeJs,
+    strict: true,
+    esModuleInterop: true,
+    sourceMap: true,
+  };
+
+  return {
+    name: "ts-plugin",
+    transform(code, id) {
+      if (!id.endsWith(".ts") && !id.endsWith(".tsx")) {
+        return null;
+      }
+      const result = ts.transpileModule(code, {
+        fileName: id,
+        compilerOptions,
+      });
+      return {
+        code: result.outputText,
+        map: result.sourceMapText ? JSON.parse(result.sourceMapText) : null,
+      };
+    },
+  };
+}
 
 export default [
   // ESM build
@@ -19,13 +47,15 @@ export default [
       exports: "named",
     },
     plugins: [
-      resolve(),
+      resolve({ extensions: [".ts", ".js"] }),
       commonjs(),
-      typescript({ tsconfig: "./tsconfig.json" }),
+      typescriptPlugin(),
     ],
     external: [
       ...Object.keys(pkg.dependencies || {}),
       ...Object.keys(pkg.peerDependencies || {}),
+      "crypto",
+      "node:crypto",
     ],
   },
   // CommonJS build - Fixed configuration
@@ -35,20 +65,19 @@ export default [
       file: "dist/index.cjs",
       format: "cjs",
       sourcemap: true,
-      exports: "auto", // Changed from "named" to "auto"
-      esModule: false, // Added to ensure proper CJS behavior
+      exports: "named",
+      esModule: true,
     },
     plugins: [
-      resolve(),
+      resolve({ extensions: [".ts", ".js"] }),
       commonjs(),
-      typescript({
-        tsconfig: "./tsconfig.json",
-        declaration: false, // Prevent duplicate declarations
-      }),
+      typescriptPlugin(),
     ],
     external: [
       ...Object.keys(pkg.dependencies || {}),
       ...Object.keys(pkg.peerDependencies || {}),
+      "crypto",
+      "node:crypto",
     ],
   },
   // TypeScript declarations

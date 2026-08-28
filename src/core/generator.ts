@@ -1,3 +1,4 @@
+import * as crypto from "crypto";
 import { __processor__ } from "../utils/processor-wrapper";
 import {
   IdGeneratorOptions,
@@ -22,10 +23,41 @@ export class Generator {
     includeChecksum: false,
   };
 
+  /**
+   * Generates cryptographically secure random bytes across Node.js and browser runtimes.
+   *
+   * @param size - Number of bytes to generate.
+   * @returns Uint8Array containing random bytes.
+   */
+  static getRandomBytes(size: number): Uint8Array {
+    if (typeof crypto !== "undefined" && typeof (crypto as any).randomBytes === "function") {
+      return new Uint8Array((crypto as any).randomBytes(size));
+    }
+    if (
+      typeof globalThis !== "undefined" &&
+      globalThis.crypto &&
+      typeof globalThis.crypto.getRandomValues === "function"
+    ) {
+      const bytes = new Uint8Array(size);
+      globalThis.crypto.getRandomValues(bytes);
+      return bytes;
+    }
+    const bytes = new Uint8Array(size);
+    for (let i = 0; i < size; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return bytes;
+  }
+
   private static generateRandomString(
     length: number,
-    alphabet: string
+    alphabet: string,
+    randomness: 'fast' | 'crypto' | 'secure' = 'fast'
   ): string {
+    if (randomness === 'crypto' || randomness === 'secure') {
+      const bytes = Generator.getRandomBytes(length);
+      return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+    }
     return Array.from(
       { length },
       () => alphabet[Math.floor(Math.random() * alphabet.length)]
@@ -56,7 +88,7 @@ export class Generator {
     }
 
     for (let i = 0; i < opts.segments; i++) {
-      const randomString = this.generateRandomString(opts.size, opts.alphabet);
+      const randomString = this.generateRandomString(opts.size, opts.alphabet, opts.randomness);
       const multiEnc = __processor__.encodeMultiple(
         randomString,
         Array.isArray(opts.encoding) ? opts.encoding : []
@@ -115,6 +147,8 @@ export class Generator {
           ? this.uuid()
           : format === "nano"
           ? this.nano()
+          : format === "hex" || format === "hash"
+          ? this.hex()
           : this.short();
 
       if (!ensureUnique || !ids.has(id)) {
@@ -149,6 +183,12 @@ export class Generator {
   }
 
   static hex(length: number = 32): string {
-    return this.generateRandomString(length, "0123456789abcdef");
+    const byteCount = Math.ceil(length / 2);
+    const bytes = Generator.getRandomBytes(byteCount);
+    let hexStr = "";
+    for (let i = 0; i < bytes.length; i++) {
+      hexStr += bytes[i].toString(16).padStart(2, "0");
+    }
+    return hexStr.slice(0, length);
   }
 }
